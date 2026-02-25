@@ -4,6 +4,11 @@
  */
 
 // ========================================
+// Configuration
+// ========================================
+const API_BASE_URL = 'http://127.0.0.1:8000';
+
+// ========================================
 // Toast Notification System
 // ========================================
 function showToast(message, type = 'info', duration = 4000) {
@@ -54,79 +59,183 @@ let apiStatus = {
 
 function updateStatusDot(api, status) {
     const dot = document.getElementById(`${api}Status`);
-    dot.className = 'status-dot ' + status;
-    const titles = {
-        connected: 'Connected',
-        disconnected: 'Not connected',
-        pending: 'Testing connection...'
-    };
-    dot.title = titles[status] || 'Unknown';
+    if (dot) {
+        dot.className = 'status-dot ' + status;
+        const titles = {
+            connected: 'Connected',
+            disconnected: 'Not connected',
+            pending: 'Testing connection...'
+        };
+        dot.title = titles[status] || 'Unknown';
+    }
     apiStatus[api] = status;
 }
 
 // ========================================
-// Mock Data Generation
+// Data Storage
 // ========================================
-const urlPaths = [
-    // Global paths (no market prefix)
-    '/blog/seo-best-practices', '/products/analytics-tool', '/guides/keyword-research',
-    '/blog/link-building-strategies', '/services/technical-seo', '/blog/content-optimization',
-    // US market
-    '/us/blog/seo-best-practices', '/us/products/analytics-tool', '/us/guides/keyword-research',
-    '/us/blog/link-building-strategies', '/us/services/technical-seo', '/us/blog/content-optimization',
-    // AU market
-    '/au/blog/seo-best-practices', '/au/products/analytics-tool', '/au/guides/keyword-research',
-    '/au/blog/link-building-strategies', '/au/services/technical-seo',
-    // GB market
-    '/gb/blog/seo-best-practices', '/gb/products/analytics-tool', '/gb/guides/keyword-research',
-    '/gb/blog/link-building-strategies', '/gb/services/technical-seo',
-    // CA market
-    '/ca/blog/seo-best-practices', '/ca/products/analytics-tool', '/ca/guides/keyword-research',
-    '/ca/blog/link-building-strategies', '/ca/services/technical-seo',
-    // IE market
-    '/ie/blog/seo-best-practices', '/ie/products/analytics-tool', '/ie/guides/keyword-research',
-    // ES market
-    '/es/blog/seo-best-practices', '/es/products/analytics-tool', '/es/guides/keyword-research',
-    // JP market
-    '/jp/blog/seo-best-practices', '/jp/products/analytics-tool', '/jp/guides/keyword-research',
-    // FR market
-    '/fr/blog/seo-best-practices', '/fr/products/analytics-tool', '/fr/guides/keyword-research',
-    // More global paths
-    '/products/rank-tracker', '/guides/local-seo', '/blog/mobile-seo-tips',
-    '/services/site-audit', '/blog/voice-search-optimization', '/products/backlink-analyzer',
-    '/guides/ecommerce-seo', '/blog/featured-snippets', '/services/penalty-recovery',
-    '/blog/schema-markup-guide', '/products/keyword-planner', '/guides/international-seo',
-    '/blog/page-speed-optimization', '/services/content-strategy', '/blog/competitor-analysis'
-];
+let pagesData = [];
+let dashboardMetrics = {};
+let sortColumn = 'priority_score';
+let sortDirection = 'desc';
+let isUsingRealData = false;
 
-const techIssues = ['low-inlinks', 'orphaned', 'not-in-sitemap'];
 const techLabels = {
-    'low-inlinks': 'Low Inlinks',
+    'low_inlinks': 'Low Inlinks',
     'orphaned': 'Orphaned',
-    'not-in-sitemap': 'Not in Sitemap'
+    'deep_page': 'Deep Page',
+    'not_in_sitemap': 'Not in Sitemap'
 };
 
-let pagesData = [];
-let sortColumn = 'priority';
-let sortDirection = 'desc';
+// ========================================
+// API Functions
+// ========================================
+async function fetchFromAPI(endpoint) {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`API Error (${endpoint}):`, error);
+        throw error;
+    }
+}
+
+async function testBackendConnection() {
+    try {
+        const health = await fetchFromAPI('/health');
+        return health.status === 'healthy';
+    } catch (error) {
+        return false;
+    }
+}
+
+async function testOncrawlAPI() {
+    const token = document.getElementById('oncrawlToken').value;
+    
+    updateStatusDot('oncrawl', 'pending');
+    showToast('Testing OnCrawl connection...', 'info', 2000);
+    
+    try {
+        // Test via our backend
+        const result = await fetchFromAPI('/api/oncrawl/test');
+        
+        if (result.success) {
+            updateStatusDot('oncrawl', 'connected');
+            showToast(`OnCrawl connected! Found ${result.project_count} projects.`, 'success');
+            
+            // Load real data
+            await loadDashboardData();
+        } else {
+            updateStatusDot('oncrawl', 'disconnected');
+            showToast('OnCrawl connection failed: ' + result.message, 'error');
+        }
+    } catch (error) {
+        updateStatusDot('oncrawl', 'disconnected');
+        showToast('Backend not available. Using mock data.', 'warning');
+        generateMockData();
+    }
+}
+
+function testSemrushAPI() {
+    const token = document.getElementById('semrushToken').value;
+    if (!token) {
+        showToast('Please enter a SEMRush API token', 'warning');
+        return;
+    }
+    
+    updateStatusDot('semrush', 'pending');
+    showToast('Testing SEMRush connection...', 'info', 2000);
+    
+    // SEMRush integration not yet implemented
+    setTimeout(() => {
+        showToast('SEMRush integration coming soon', 'info');
+        updateStatusDot('semrush', 'disconnected');
+    }, 1500);
+}
+
+async function loadDashboardData() {
+    try {
+        showToast('Loading data from OnCrawl...', 'info', 2000);
+        
+        // Fetch dashboard metrics
+        const metrics = await fetchFromAPI('/api/dashboard/metrics');
+        dashboardMetrics = metrics;
+        
+        // Update metric cards
+        document.getElementById('totalPages').textContent = metrics.total_pages.toLocaleString();
+        document.getElementById('poorPerformers').textContent = metrics.orphaned_pages.toLocaleString();
+        document.getElementById('wellPerformers').textContent = (metrics.total_pages - metrics.orphaned_pages).toLocaleString();
+        
+        // Fetch priority pages
+        const priorityData = await fetchFromAPI('/api/dashboard/priority-pages?limit=100');
+        
+        // Transform API data to match our table format
+        pagesData = priorityData.pages.map((page, index) => ({
+            id: index,
+            url: page.url,
+            priority: page.priority_score,
+            priority_score: page.priority_score,
+            bucket: page.technical_gaps.includes('orphaned') ? 1 : 2,
+            position: Math.floor(Math.random() * 50) + 1, // Placeholder until SEMRush integration
+            change: Math.floor(Math.random() * 20) - 10, // Placeholder
+            volume: Math.floor(Math.random() * 10000) + 100, // Placeholder
+            inlinks: page.nb_inlinks || 0,
+            depth: page.depth || 0,
+            title: page.title || '',
+            techIssues: page.technical_gaps || [],
+            keywords: generateKeywords(),
+            rankHistory: generateRankHistory(Math.floor(Math.random() * 30) + 1),
+            recommendations: generateRecommendations()
+        }));
+        
+        isUsingRealData = true;
+        renderTable();
+        showToast(`Loaded ${pagesData.length} priority pages from OnCrawl`, 'success');
+        
+    } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        showToast('Failed to load data. Using mock data.', 'warning');
+        generateMockData();
+    }
+}
+
+// ========================================
+// Mock Data Generation (Fallback)
+// ========================================
+const urlPaths = [
+    '/us/blog/seo-best-practices', '/us/products/analytics-tool', '/us/guides/keyword-research',
+    '/us/blog/link-building-strategies', '/us/services/technical-seo', '/us/blog/content-optimization',
+    '/au/blog/seo-best-practices', '/au/products/analytics-tool', '/au/guides/keyword-research',
+    '/gb/blog/seo-best-practices', '/gb/products/analytics-tool', '/gb/guides/keyword-research',
+    '/ca/blog/seo-best-practices', '/ca/products/analytics-tool', '/ca/guides/keyword-research',
+    '/ie/blog/seo-best-practices', '/ie/products/analytics-tool',
+    '/es/blog/seo-best-practices', '/es/products/analytics-tool',
+    '/jp/blog/seo-best-practices', '/jp/products/analytics-tool',
+    '/fr/blog/seo-best-practices', '/fr/products/analytics-tool',
+    '/products/rank-tracker', '/guides/local-seo', '/blog/mobile-seo-tips',
+    '/services/site-audit', '/blog/voice-search-optimization', '/products/backlink-analyzer'
+];
 
 function generateMockData() {
+    isUsingRealData = false;
     pagesData = urlPaths.map((path, index) => {
         const bucket = Math.random() > 0.6 ? 1 : 2;
         const position = Math.floor(Math.random() * 50) + 1;
         const change = Math.floor(Math.random() * 20) - 10;
         const volume = Math.floor(Math.random() * 10000) + 100;
         const inlinks = Math.floor(Math.random() * 15);
-        const issues = techIssues.filter(() => Math.random() > 0.7);
+        const issues = ['low_inlinks', 'orphaned', 'deep_page'].filter(() => Math.random() > 0.7);
         
-        // Add low-inlinks issue if inlinks < 3
-        if (inlinks < 3 && !issues.includes('low-inlinks')) {
-            issues.push('low-inlinks');
+        if (inlinks < 3 && !issues.includes('low_inlinks')) {
+            issues.push('low_inlinks');
         }
         
         let priority = 0;
         if (bucket === 1) priority += 40;
-        if (change > 3) priority += 20; // Positive change means rank dropped (bad)
+        if (change > 3) priority += 20;
         if (inlinks < 3) priority += 15;
         if (issues.length > 0) priority += issues.length * 5;
         if (volume > 1000) priority += 10;
@@ -136,11 +245,14 @@ function generateMockData() {
             id: index,
             url: path,
             priority,
+            priority_score: priority,
             bucket,
             position,
             change,
             volume,
             inlinks,
+            depth: Math.floor(Math.random() * 5) + 1,
+            title: 'Page Title ' + index,
             techIssues: issues,
             keywords: generateKeywords(),
             rankHistory: generateRankHistory(position),
@@ -162,7 +274,6 @@ function generateKeywords() {
 }
 
 function generateRankHistory(currentPos) {
-    // Generate monthly data for multiple years
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const years = [2024, 2023, 2022];
     const history = {};
@@ -195,9 +306,7 @@ function generateRecommendations() {
 // ========================================
 function updateMetrics() {
     const total = pagesData.length;
-    // Poor performers = high priority (>= 50)
     const poorPerformers = pagesData.filter(p => p.priority >= 50).length;
-    // Well performers = low priority (< 50)
     const wellPerformers = pagesData.filter(p => p.priority < 50).length;
     
     document.getElementById('totalPages').textContent = total;
@@ -219,7 +328,6 @@ function renderTable() {
         if (bucketFilter === 'poor' && page.priority < 50) return false;
         if (bucketFilter === 'moderate' && page.priority >= 50) return false;
         
-        // Market filter - check if URL contains market prefix (e.g., /us/, /ca/, etc.)
         if (marketFilter !== 'global') {
             const marketPrefix = '/' + marketFilter + '/';
             if (!page.url.toLowerCase().includes(marketPrefix)) return false;
@@ -238,30 +346,27 @@ function renderTable() {
     });
 
     tbody.innerHTML = filtered.map(page => {
-        // Change logic: negative change = rank improved (lower number is better) = GREEN with down arrow
-        // positive change = rank declined (higher number is worse) = RED with up arrow
         let changeClass = 'change-neutral';
         let changeIcon = '';
         let changeDisplay = '—';
         
         if (page.change < 0) {
-            // Rank improved (e.g., went from position 15 to 10, change = -5)
             changeClass = 'change-down';
             changeIcon = '<i class="fas fa-arrow-down"></i>';
             changeDisplay = `${changeIcon} ${Math.abs(page.change)}`;
         } else if (page.change > 0) {
-            // Rank declined (e.g., went from position 10 to 15, change = +5)
             changeClass = 'change-up';
             changeIcon = '<i class="fas fa-arrow-up"></i>';
             changeDisplay = `${changeIcon} ${Math.abs(page.change)}`;
         }
         
         const categoryLabel = page.bucket === 1 ? 'Poor' : 'Moderate/Well';
+        const priorityScore = page.priority_score || page.priority;
         
         return `
         <tr>
             <td class="url-cell" title="${page.url}">${page.url}</td>
-            <td><span class="priority-score ${page.priority >= 70 ? 'priority-high' : page.priority >= 40 ? 'priority-medium' : 'priority-low'}">${page.priority}</span></td>
+            <td><span class="priority-score ${priorityScore >= 70 ? 'priority-high' : priorityScore >= 40 ? 'priority-medium' : 'priority-low'}">${priorityScore}</span></td>
             <td><span class="bucket-badge bucket-${page.bucket}">${categoryLabel}</span></td>
             <td>${page.position}</td>
             <td class="${changeClass}">${changeDisplay}</td>
@@ -269,7 +374,7 @@ function renderTable() {
             <td>${page.inlinks}</td>
             <td>
                 <div class="tech-badges">
-                    ${page.techIssues.map(issue => `<span class="tech-badge">${techLabels[issue]}</span>`).join('')}
+                    ${page.techIssues.map(issue => `<span class="tech-badge">${techLabels[issue] || issue}</span>`).join('')}
                 </div>
             </td>
             <td><button class="btn-view" onclick="openModal(${page.id})"><i class="fas fa-eye"></i> View</button></td>
@@ -310,64 +415,12 @@ function updateSlider(name) {
 }
 
 function applySettings() {
-    // TODO: Apply threshold settings to filtering logic
     showToast('Settings applied! Recalculating priorities...', 'success');
-    generateMockData();
-}
-
-// ========================================
-// API Functions (Placeholders)
-// ========================================
-function testSemrushAPI() {
-    const token = document.getElementById('semrushToken').value;
-    if (!token) {
-        showToast('Please enter a SEMRush API token', 'warning');
-        return;
+    if (isUsingRealData) {
+        loadDashboardData();
+    } else {
+        generateMockData();
     }
-    
-    updateStatusDot('semrush', 'pending');
-    showToast('Testing SEMRush connection...', 'info', 2000);
-    
-    // TODO: Implement actual SEMRush API connection test
-    // fetch('https://api.semrush.com/...', { headers: { 'Authorization': token } })
-    
-    // Simulate API test
-    setTimeout(() => {
-        const success = Math.random() > 0.3;
-        if (success) {
-            updateStatusDot('semrush', 'connected');
-            showToast('SEMRush API connected successfully!', 'success');
-        } else {
-            updateStatusDot('semrush', 'disconnected');
-            showToast('SEMRush API connection failed. Check your token.', 'error');
-        }
-    }, 1500);
-}
-
-function testOncrawlAPI() {
-    const token = document.getElementById('oncrawlToken').value;
-    if (!token) {
-        showToast('Please enter an OnCrawl API token', 'warning');
-        return;
-    }
-    
-    updateStatusDot('oncrawl', 'pending');
-    showToast('Testing OnCrawl connection...', 'info', 2000);
-    
-    // TODO: Implement actual OnCrawl API connection test
-    // fetch('https://app.oncrawl.com/api/...', { headers: { 'Authorization': token } })
-    
-    // Simulate API test
-    setTimeout(() => {
-        const success = Math.random() > 0.3;
-        if (success) {
-            updateStatusDot('oncrawl', 'connected');
-            showToast('OnCrawl API connected successfully!', 'success');
-        } else {
-            updateStatusDot('oncrawl', 'disconnected');
-            showToast('OnCrawl API connection failed. Check your token.', 'error');
-        }
-    }, 1500);
 }
 
 function saveConfiguration() {
@@ -379,22 +432,9 @@ function saveConfiguration() {
         return;
     }
     
-    // TODO: Save configuration to localStorage or backend
-    // localStorage.setItem('apiConfig', JSON.stringify({ semrushToken, oncrawlToken }));
-    
-    showToast('Configuration saved successfully!', 'success');
-}
-
-function fetchSEMRushData(domain) {
-    // TODO: Fetch ranking data from SEMRush API
-    // Returns: { keywords: [], positions: [], volumes: [] }
-    console.log('TODO: Implement SEMRush data fetch for', domain);
-}
-
-function fetchOnCrawlData(projectId) {
-    // TODO: Fetch technical SEO data from OnCrawl API
-    // Returns: { pages: [], issues: [], inlinks: [] }
-    console.log('TODO: Implement OnCrawl data fetch for project', projectId);
+    // Save to localStorage
+    localStorage.setItem('apiConfig', JSON.stringify({ semrushToken, oncrawlToken }));
+    showToast('Configuration saved!', 'success');
 }
 
 // ========================================
@@ -404,14 +444,14 @@ function openModal(pageId) {
     const page = pagesData.find(p => p.id === pageId);
     if (!page) return;
 
-    document.getElementById('modalTitle').textContent = page.url;
+    document.getElementById('modalTitle').textContent = page.title || page.url;
     document.getElementById('modalOverlay').classList.add('active');
 
     // Render tech checklist
     const techItems = [
-        { key: 'low-inlinks', label: 'Sufficient Inlinks (≥3)' },
+        { key: 'low_inlinks', label: 'Sufficient Inlinks (≥3)' },
         { key: 'orphaned', label: 'Not Orphaned' },
-        { key: 'not-in-sitemap', label: 'In Sitemap' }
+        { key: 'deep_page', label: 'Not Too Deep (≤3)' }
     ];
     document.getElementById('techChecklist').innerHTML = techItems.map(item => `
         <li>
@@ -433,10 +473,8 @@ function openModal(pageId) {
         </tr>
     `).join('');
 
-    // Store current page for chart updates
     window.currentChartPage = page;
     
-    // Draw chart with default year - use setTimeout to ensure modal is fully rendered
     setTimeout(() => {
         const selectedYear = document.getElementById('yearSelector').value;
         drawRankingChart(page.rankHistory, selectedYear);
@@ -469,22 +507,18 @@ function drawRankingChart(historyData, year) {
     const canvas = document.getElementById('rankingChart');
     const ctx = canvas.getContext('2d');
     
-    // Destroy existing chart if it exists
     if (rankingChartInstance) {
         rankingChartInstance.destroy();
     }
 
-    // Get data for selected year
     const history = historyData[year] || historyData[2024] || [];
     const months = history.map(h => h.month);
     const positions = history.map(h => h.position);
     
-    // Get colors based on theme
     const isDark = document.body.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-    // Create gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
     gradient.addColorStop(0, 'rgba(26, 26, 26, 0.4)');
     gradient.addColorStop(1, 'rgba(26, 26, 26, 0.02)');
@@ -519,83 +553,43 @@ function drawRankingChart(historyData, year) {
                 mode: 'index'
             },
             plugins: {
-                legend: {
-                    display: false
-                },
+                legend: { display: false },
                 tooltip: {
                     enabled: true,
                     backgroundColor: isDark ? '#1e293b' : '#ffffff',
                     titleColor: isDark ? '#f1f5f9' : '#1e293b',
                     bodyColor: '#1a1a1a',
-                    titleFont: {
-                        size: 14,
-                        weight: '600',
-                        family: 'Inter'
-                    },
-                    bodyFont: {
-                        size: 18,
-                        weight: '700',
-                        family: 'Inter'
-                    },
+                    titleFont: { size: 14, weight: '600', family: 'Inter' },
+                    bodyFont: { size: 18, weight: '700', family: 'Inter' },
                     padding: 14,
                     cornerRadius: 10,
                     borderColor: isDark ? '#475569' : '#e2e8f0',
                     borderWidth: 1,
                     displayColors: false,
                     callbacks: {
-                        title: function(context) {
-                            return context[0].label + ' ' + year;
-                        },
-                        label: function(context) {
-                            return 'Position: ' + context.parsed.y;
-                        }
+                        title: (context) => context[0].label + ' ' + year,
+                        label: (context) => 'Position: ' + context.parsed.y
                     }
                 }
             },
             scales: {
                 x: {
-                    grid: {
-                        color: gridColor,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: textColor,
-                        font: {
-                            size: 11,
-                            family: 'Inter'
-                        }
-                    }
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { color: textColor, font: { size: 11, family: 'Inter' } }
                 },
                 y: {
                     reverse: true,
-                    grid: {
-                        color: gridColor,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: textColor,
-                        font: {
-                            size: 11,
-                            family: 'Inter'
-                        },
-                        stepSize: 5
-                    },
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { color: textColor, font: { size: 11, family: 'Inter' }, stepSize: 5 },
                     title: {
                         display: true,
                         text: 'Position',
                         color: textColor,
-                        font: {
-                            size: 12,
-                            family: 'Inter',
-                            weight: '500'
-                        }
+                        font: { size: 12, family: 'Inter', weight: '500' }
                     }
                 }
             },
-            animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-            }
+            animation: { duration: 750, easing: 'easeInOutQuart' }
         }
     });
 }
@@ -604,10 +598,17 @@ function drawRankingChart(historyData, year) {
 // Export Functions
 // ========================================
 function exportCSV() {
-    const headers = ['URL', 'Priority', 'Bucket', 'Position', 'Change', 'Search Volume', 'Tech Issues', 'Inlinks'];
+    const headers = ['URL', 'Priority Score', 'Category', 'Position', 'Change', 'Search Volume', 'Inlinks', 'Depth', 'Tech Issues'];
     const rows = pagesData.map(p => [
-        p.url, p.priority, p.bucket, p.position, p.change, p.volume, 
-        p.techIssues.map(i => techLabels[i]).join('; '), p.inlinks
+        p.url, 
+        p.priority_score || p.priority, 
+        p.bucket === 1 ? 'Poor' : 'Moderate/Well',
+        p.position, 
+        p.change, 
+        p.volume, 
+        p.inlinks,
+        p.depth,
+        p.techIssues.map(i => techLabels[i] || i).join('; ')
     ]);
     
     let csv = headers.join(',') + '\n';
@@ -627,14 +628,30 @@ function exportCSV() {
 }
 
 function exportPDF() {
-    // TODO: Implement PDF export (would require a PDF library like jsPDF)
     showToast('PDF export requires additional library integration', 'warning');
 }
 
 // ========================================
 // Initialize Application
 // ========================================
-document.addEventListener('DOMContentLoaded', function() {
-    generateMockData();
-    showToast('Dashboard loaded with ' + pagesData.length + ' pages', 'info', 3000);
+document.addEventListener('DOMContentLoaded', async function() {
+    // Load saved config
+    const savedConfig = localStorage.getItem('apiConfig');
+    if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        if (config.semrushToken) document.getElementById('semrushToken').value = config.semrushToken;
+        if (config.oncrawlToken) document.getElementById('oncrawlToken').value = config.oncrawlToken;
+    }
+    
+    // Try to connect to backend
+    const backendAvailable = await testBackendConnection();
+    
+    if (backendAvailable) {
+        showToast('Backend connected! Loading real data...', 'success');
+        updateStatusDot('oncrawl', 'connected');
+        await loadDashboardData();
+    } else {
+        showToast('Backend not available. Using mock data.', 'warning');
+        generateMockData();
+    }
 });

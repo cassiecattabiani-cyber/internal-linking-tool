@@ -1,6 +1,17 @@
 # Dependencies
 node_modules/
 
+# Python virtual environment
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Backend logs and temp files
+backend/server.log
+backend/nohup.out
+
 # Build outputs
 dist/
 build/
