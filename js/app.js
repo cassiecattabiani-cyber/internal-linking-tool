@@ -330,31 +330,13 @@ function generateKeywords() {
 }
 
 function generateRankHistory(currentPos) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const years = [2024, 2023, 2022];
-    const history = {};
-    
-    years.forEach(year => {
-        history[year] = [];
-        let pos = currentPos + Math.floor(Math.random() * 15) - 7;
-        months.forEach((month, idx) => {
-            pos += Math.floor(Math.random() * 8) - 4;
-            pos = Math.max(1, Math.min(100, pos));
-            history[year].push({ month: month, monthIndex: idx, position: pos });
-        });
-    });
-    
-    return history;
+    // Return empty object - ranking history requires SEMRush data
+    return {};
 }
 
 function generateRecommendations() {
-    const sources = ['/blog/related-topic', '/guides/complementary-guide', '/products/similar-tool',
-        '/services/related-service', '/blog/supporting-content'];
-    return sources.slice(0, Math.floor(Math.random() * 4) + 1).map(src => ({
-        source: src,
-        relevance: Math.floor(Math.random() * 40) + 60,
-        anchor: ['Learn more about', 'Discover how to', 'See our guide on', 'Check out'][Math.floor(Math.random() * 4)] + ' this topic'
-    }));
+    // Return empty array - recommendations require SEMRush data
+    return [];
 }
 
 // ========================================
