@@ -515,17 +515,17 @@ def _calculate_priority(page: Dict, technical_gaps: List[str]) -> float:
     """
     Calculate priority score based on technical gaps.
     
-    Scoring weights from criteria doc:
-    - Orphaned page: 1.0 (critical)
-    - Low inlinks: 0.85
+    Scoring weights (adjusted):
+    - Low inlinks: 1.0 (highest priority - most actionable)
+    - Orphaned page: 0.85 (high priority)
     - Deep page: 0.6
     - Multiple issues: bonus multiplier
     """
     base_score = 0
     
     gap_weights = {
-        'orphaned': 1.0,
-        'low_inlinks': 0.85,
+        'low_inlinks': 1.0,      # Highest priority - most actionable
+        'orphaned': 0.85,        # High priority
         'deep_page': 0.6,
         'not_in_sitemap': 0.4
     }

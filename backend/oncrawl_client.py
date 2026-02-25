@@ -170,7 +170,7 @@ class OnCrawlClient:
         max_inlinks: int = 3,
         limit: int = 100
     ) -> Dict[str, Any]:
-        """Get pages with low internal links (potential linking targets)."""
+        """Get pages with low internal links (1-3 inlinks, not orphaned)."""
         return self.query_pages(
             crawl_id=crawl_id,
             fields=['url', 'nb_inlinks', 'depth', 'status_code', 'title', 'word_count'],
@@ -178,7 +178,8 @@ class OnCrawlClient:
                 'and': [
                     {'field': ['fetched', 'equals', True]},
                     {'field': ['status_code', 'equals', 200]},
-                    {'field': ['nb_inlinks', 'lower_than', max_inlinks + 1]}
+                    {'field': ['nb_inlinks', 'gt', 0]},  # More than 0 (not orphaned)
+                    {'field': ['nb_inlinks', 'lte', max_inlinks]}  # Up to max_inlinks
                 ]
             },
             sort=[{'field': 'nb_inlinks', 'order': 'asc'}],
@@ -215,7 +216,7 @@ class OnCrawlClient:
                 'and': [
                     {'field': ['fetched', 'equals', True]},
                     {'field': ['status_code', 'equals', 200]},
-                    {'field': ['depth', 'greater_than', min_depth - 1]}
+                    {'field': ['depth', 'gte', min_depth]}  # Fixed: use 'gte' not 'greater_than'
                 ]
             },
             sort=[{'field': 'depth', 'order': 'desc'}],
