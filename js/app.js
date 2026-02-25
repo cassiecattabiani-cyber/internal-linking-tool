@@ -530,25 +530,60 @@ function openModal(pageId) {
         </li>
     `).join('');
 
-    // Render recommendations
-    document.getElementById('recTableBody').innerHTML = page.recommendations.map(rec => `
-        <tr>
-            <td class="url-cell">${rec.source}</td>
-            <td>
-                <div class="relevance-bar"><div class="relevance-fill" style="width: ${rec.relevance}%"></div></div>
-                <span style="font-size: 11px; margin-left: 8px;">${rec.relevance}%</span>
-            </td>
-            <td class="anchor-text">"${rec.anchor}"</td>
-            <td><button class="btn btn-secondary btn-view" onclick="addLink('${rec.source}')">Add Link</button></td>
-        </tr>
-    `).join('');
+    // Render recommendations - show awaiting badge if no real data
+    const hasRecommendations = page.recommendations && page.recommendations.length > 0 && page.recommendations[0].relevance !== null;
+    
+    if (hasRecommendations) {
+        document.getElementById('recTableBody').innerHTML = page.recommendations.map(rec => `
+            <tr>
+                <td class="url-cell">${rec.source}</td>
+                <td>
+                    <div class="relevance-bar"><div class="relevance-fill" style="width: ${rec.relevance}%"></div></div>
+                    <span style="font-size: 11px; margin-left: 8px;">${rec.relevance}%</span>
+                </td>
+                <td class="anchor-text">"${rec.anchor}"</td>
+                <td><button class="btn btn-secondary btn-view" onclick="addLink('${rec.source}')">Add Link</button></td>
+            </tr>
+        `).join('');
+    } else {
+        document.getElementById('recTableBody').innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 40px;">
+                    <span class="awaiting-data" style="font-size: 13px; padding: 8px 16px;">
+                        <i class="fas fa-clock"></i> Awaiting SEMRush - Interlink recommendations require keyword and ranking data
+                    </span>
+                </td>
+            </tr>
+        `;
+    }
 
     window.currentChartPage = page;
     
-    setTimeout(() => {
-        const selectedYear = document.getElementById('yearSelector').value;
-        drawRankingChart(page.rankHistory, selectedYear);
-    }, 100);
+    // Check if we have ranking history data
+    const hasRankingData = page.rankHistory && Object.keys(page.rankHistory).length > 0 && 
+        Object.values(page.rankHistory).some(yearData => yearData && yearData.length > 0);
+    
+    const chartWrapper = document.querySelector('.chart-wrapper');
+    const chartHeader = document.querySelector('.chart-header');
+    
+    if (hasRankingData) {
+        chartWrapper.style.display = 'block';
+        chartHeader.querySelector('.year-selector').style.display = 'block';
+        setTimeout(() => {
+            const selectedYear = document.getElementById('yearSelector').value;
+            drawRankingChart(page.rankHistory, selectedYear);
+        }, 100);
+    } else {
+        // Hide chart and show awaiting message
+        chartWrapper.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px;">
+                <span class="awaiting-data" style="font-size: 13px; padding: 8px 16px;">
+                    <i class="fas fa-clock"></i> Awaiting SEMRush - Ranking history requires position tracking data
+                </span>
+            </div>
+        `;
+        chartHeader.querySelector('.year-selector').style.display = 'none';
+    }
 }
 
 function addLink(source) {
