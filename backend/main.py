@@ -470,6 +470,7 @@ async def get_dashboard_metrics(crawl_id: Optional[str] = None):
         'orphaned_pages': summary.get('orphaned_count', 0),
         'low_inlinks_pages': summary.get('low_inlinks_count', 0),
         'deep_pages': summary.get('deep_pages_count', 0),
+        'not_in_sitemap_pages': summary.get('not_in_sitemap_count', 0),
         'inlinks_distribution': summary.get('inlinks_distribution'),
         'depth_distribution': summary.get('depth_distribution')
     }

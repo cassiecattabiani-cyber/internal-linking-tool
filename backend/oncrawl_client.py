@@ -322,6 +322,26 @@ class OnCrawlClient:
             }]
         )
     
+    def get_pages_not_in_sitemap(
+        self,
+        crawl_id: str,
+        limit: int = 100
+    ) -> Dict[str, Any]:
+        """Get pages that are not in the sitemap."""
+        return self.query_pages(
+            crawl_id=crawl_id,
+            fields=['url', 'nb_inlinks', 'depth', 'status_code', 'title', 'in_sitemap'],
+            oql={
+                'and': [
+                    {'field': ['fetched', 'equals', True]},
+                    {'field': ['status_code', 'equals', 200]},
+                    {'field': ['in_sitemap', 'equals', False]}
+                ]
+            },
+            sort=[{'field': 'nb_inlinks', 'order': 'asc'}],
+            limit=limit
+        )
+    
     def get_technical_summary(self, crawl_id: str) -> Dict[str, Any]:
         """Get a technical SEO summary for a crawl."""
         summary = {
@@ -330,7 +350,8 @@ class OnCrawlClient:
             'depth_distribution': None,
             'orphaned_count': 0,
             'low_inlinks_count': 0,
-            'deep_pages_count': 0
+            'deep_pages_count': 0,
+            'not_in_sitemap_count': 0
         }
         
         # Get inlinks distribution
@@ -357,6 +378,11 @@ class OnCrawlClient:
         deep = self.get_deep_pages(crawl_id, min_depth=4, limit=1)
         if not deep.get('error'):
             summary['deep_pages_count'] = deep.get('meta', {}).get('total_hits', 0)
+        
+        # Count pages not in sitemap
+        not_in_sitemap = self.get_pages_not_in_sitemap(crawl_id, limit=1)
+        if not not_in_sitemap.get('error'):
+            summary['not_in_sitemap_count'] = not_in_sitemap.get('meta', {}).get('total_hits', 0)
         
         return summary
 

@@ -126,19 +126,51 @@
             </div>
         </div>
 
-        <!-- Metrics Cards - 3 Large Cards -->
+        <!-- Metrics Cards - Overview Row -->
         <div class="metrics-grid">
             <div class="metric-card gray">
                 <div class="metric-label">Total Pages</div>
-                <div class="metric-value" id="totalPages">0</div>
+                <div class="metric-value" id="totalPages"><span class="spinner"></span></div>
             </div>
             <div class="metric-card red">
-                <div class="metric-label">Poor Performers</div>
-                <div class="metric-value" id="poorPerformers">0</div>
+                <div class="metric-label">Critical</div>
+                <div class="metric-value" id="poorPerformers"><span class="spinner"></span></div>
             </div>
             <div class="metric-card yellow">
-                <div class="metric-label">Moderate/Well Performers</div>
-                <div class="metric-value" id="wellPerformers">0</div>
+                <div class="metric-label">Moderate</div>
+                <div class="metric-value" id="wellPerformers"><span class="spinner"></span></div>
+            </div>
+        </div>
+
+        <!-- Technical Gaps - At a Glance -->
+        <div class="metrics-grid metrics-grid-4">
+            <div class="metric-card-small purple">
+                <div class="metric-icon"><i class="fas fa-link"></i></div>
+                <div class="metric-info">
+                    <div class="metric-value-small" id="lowInlinksCount"><span class="spinner-small"></span></div>
+                    <div class="metric-label-small">Low Inlinks (1-3)</div>
+                </div>
+            </div>
+            <div class="metric-card-small orange">
+                <div class="metric-icon"><i class="fas fa-unlink"></i></div>
+                <div class="metric-info">
+                    <div class="metric-value-small" id="orphanedCount"><span class="spinner-small"></span></div>
+                    <div class="metric-label-small">Orphaned (0)</div>
+                </div>
+            </div>
+            <div class="metric-card-small blue">
+                <div class="metric-icon"><i class="fas fa-layer-group"></i></div>
+                <div class="metric-info">
+                    <div class="metric-value-small" id="deepPagesCount"><span class="spinner-small"></span></div>
+                    <div class="metric-label-small">Deep Pages (≥4)</div>
+                </div>
+            </div>
+            <div class="metric-card-small teal">
+                <div class="metric-icon"><i class="fas fa-sitemap"></i></div>
+                <div class="metric-info">
+                    <div class="metric-value-small" id="notInSitemapCount"><span class="spinner-small"></span></div>
+                    <div class="metric-label-small">Not in Sitemap</div>
+                </div>
             </div>
         </div>
 

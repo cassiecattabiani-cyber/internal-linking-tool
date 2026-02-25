@@ -88,6 +88,44 @@ const techLabels = {
 };
 
 // ========================================
+// Loading States
+// ========================================
+function showTableLoading() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="9">
+                <div class="table-loading">
+                    <span class="spinner"></span>
+                    <span class="table-loading-text">Loading page data...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function setMetricLoading(elementId) {
+    const el = document.getElementById(elementId);
+    if (el) {
+        const isSmall = el.classList.contains('metric-value-small') || elementId.includes('Count');
+        el.innerHTML = `<span class="${isSmall ? 'spinner-small' : 'spinner'}"></span>`;
+    }
+}
+
+function setAllMetricsLoading() {
+    // Main metrics
+    setMetricLoading('totalPages');
+    setMetricLoading('poorPerformers');
+    setMetricLoading('wellPerformers');
+    
+    // Technical gap metrics
+    setMetricLoading('lowInlinksCount');
+    setMetricLoading('orphanedCount');
+    setMetricLoading('deepPagesCount');
+    setMetricLoading('notInSitemapCount');
+}
+
+// ========================================
 // API Functions
 // ========================================
 async function fetchFromAPI(endpoint) {
@@ -113,20 +151,15 @@ async function testBackendConnection() {
 }
 
 async function testOncrawlAPI() {
-    const token = document.getElementById('oncrawlToken').value;
-    
     updateStatusDot('oncrawl', 'pending');
     showToast('Testing OnCrawl connection...', 'info', 2000);
     
     try {
-        // Test via our backend
         const result = await fetchFromAPI('/api/oncrawl/test');
         
         if (result.success) {
             updateStatusDot('oncrawl', 'connected');
             showToast(`OnCrawl connected! Found ${result.project_count} projects.`, 'success');
-            
-            // Load real data
             await loadDashboardData();
         } else {
             updateStatusDot('oncrawl', 'disconnected');
@@ -149,7 +182,6 @@ function testSemrushAPI() {
     updateStatusDot('semrush', 'pending');
     showToast('Testing SEMRush connection...', 'info', 2000);
     
-    // SEMRush integration not yet implemented
     setTimeout(() => {
         showToast('SEMRush integration coming soon', 'info');
         updateStatusDot('semrush', 'disconnected');
@@ -158,16 +190,30 @@ function testSemrushAPI() {
 
 async function loadDashboardData() {
     try {
+        setAllMetricsLoading();
+        showTableLoading();
         showToast('Loading data from OnCrawl...', 'info', 2000);
         
         // Fetch dashboard metrics
         const metrics = await fetchFromAPI('/api/dashboard/metrics');
         dashboardMetrics = metrics;
         
-        // Update metric cards
+        // Update main metric cards
         document.getElementById('totalPages').textContent = metrics.total_pages.toLocaleString();
-        document.getElementById('poorPerformers').textContent = metrics.orphaned_pages.toLocaleString();
-        document.getElementById('wellPerformers').textContent = (metrics.total_pages - metrics.orphaned_pages).toLocaleString();
+        
+        // Critical = orphaned + pages with multiple issues (estimate)
+        const criticalCount = metrics.orphaned_pages;
+        document.getElementById('poorPerformers').textContent = criticalCount.toLocaleString();
+        
+        // Moderate = low inlinks (non-orphaned)
+        const moderateCount = metrics.low_inlinks_pages || 0;
+        document.getElementById('wellPerformers').textContent = moderateCount.toLocaleString();
+        
+        // Update technical gap cards
+        document.getElementById('lowInlinksCount').textContent = (metrics.low_inlinks_pages || 0).toLocaleString();
+        document.getElementById('orphanedCount').textContent = (metrics.orphaned_pages || 0).toLocaleString();
+        document.getElementById('deepPagesCount').textContent = (metrics.deep_pages || 0).toLocaleString();
+        document.getElementById('notInSitemapCount').textContent = (metrics.not_in_sitemap_pages || 0).toLocaleString();
         
         // Fetch priority pages
         const priorityData = await fetchFromAPI('/api/dashboard/priority-pages?limit=100');
@@ -178,10 +224,10 @@ async function loadDashboardData() {
             url: page.url,
             priority: page.priority_score,
             priority_score: page.priority_score,
-            bucket: page.technical_gaps.includes('orphaned') ? 1 : 2,
-            position: Math.floor(Math.random() * 50) + 1, // Placeholder until SEMRush integration
-            change: Math.floor(Math.random() * 20) - 10, // Placeholder
-            volume: Math.floor(Math.random() * 10000) + 100, // Placeholder
+            bucket: page.technical_gaps.includes('orphaned') || page.technical_gaps.length >= 2 ? 1 : 2,
+            position: null, // Awaiting SEMRush
+            change: null, // Awaiting SEMRush
+            volume: null, // Awaiting SEMRush
             inlinks: page.nb_inlinks || 0,
             depth: page.depth || 0,
             title: page.title || '',
@@ -221,6 +267,16 @@ const urlPaths = [
 
 function generateMockData() {
     isUsingRealData = false;
+    
+    // Update metrics with mock data
+    document.getElementById('totalPages').textContent = '1,247';
+    document.getElementById('poorPerformers').textContent = '89';
+    document.getElementById('wellPerformers').textContent = '342';
+    document.getElementById('lowInlinksCount').textContent = '342';
+    document.getElementById('orphanedCount').textContent = '89';
+    document.getElementById('deepPagesCount').textContent = '567';
+    document.getElementById('notInSitemapCount').textContent = '23';
+    
     pagesData = urlPaths.map((path, index) => {
         const bucket = Math.random() > 0.6 ? 1 : 2;
         const position = Math.floor(Math.random() * 50) + 1;
@@ -259,7 +315,7 @@ function generateMockData() {
             recommendations: generateRecommendations()
         };
     });
-    updateMetrics();
+    
     renderTable();
 }
 
@@ -302,19 +358,6 @@ function generateRecommendations() {
 }
 
 // ========================================
-// Metrics Update
-// ========================================
-function updateMetrics() {
-    const total = pagesData.length;
-    const poorPerformers = pagesData.filter(p => p.priority >= 50).length;
-    const wellPerformers = pagesData.filter(p => p.priority < 50).length;
-    
-    document.getElementById('totalPages').textContent = total;
-    document.getElementById('poorPerformers').textContent = poorPerformers;
-    document.getElementById('wellPerformers').textContent = wellPerformers;
-}
-
-// ========================================
 // Table Rendering
 // ========================================
 function renderTable() {
@@ -325,8 +368,8 @@ function renderTable() {
 
     let filtered = pagesData.filter(page => {
         if (searchTerm && !page.url.toLowerCase().includes(searchTerm)) return false;
-        if (bucketFilter === 'poor' && page.priority < 50) return false;
-        if (bucketFilter === 'moderate' && page.priority >= 50) return false;
+        if (bucketFilter === 'poor' && page.bucket !== 1) return false;
+        if (bucketFilter === 'moderate' && page.bucket !== 2) return false;
         
         if (marketFilter !== 'global') {
             const marketPrefix = '/' + marketFilter + '/';
@@ -342,35 +385,37 @@ function renderTable() {
         if (sortColumn === 'url') {
             return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
+        // Handle null values
+        if (aVal === null) aVal = sortDirection === 'asc' ? Infinity : -Infinity;
+        if (bVal === null) bVal = sortDirection === 'asc' ? Infinity : -Infinity;
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
     });
 
     tbody.innerHTML = filtered.map(page => {
-        let changeClass = 'change-neutral';
-        let changeIcon = '';
-        let changeDisplay = '—';
-        
-        if (page.change < 0) {
-            changeClass = 'change-down';
-            changeIcon = '<i class="fas fa-arrow-down"></i>';
-            changeDisplay = `${changeIcon} ${Math.abs(page.change)}`;
-        } else if (page.change > 0) {
-            changeClass = 'change-up';
-            changeIcon = '<i class="fas fa-arrow-up"></i>';
-            changeDisplay = `${changeIcon} ${Math.abs(page.change)}`;
-        }
-        
-        const categoryLabel = page.bucket === 1 ? 'Poor' : 'Moderate/Well';
         const priorityScore = page.priority_score || page.priority;
+        const categoryLabel = page.bucket === 1 ? 'Critical' : 'Moderate';
+        
+        // SEMRush data - show awaiting badge if null
+        const positionDisplay = page.position !== null 
+            ? page.position 
+            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
+        
+        const changeDisplay = page.change !== null 
+            ? formatChange(page.change)
+            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
+        
+        const volumeDisplay = page.volume !== null 
+            ? page.volume.toLocaleString()
+            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
         
         return `
         <tr>
             <td class="url-cell" title="${page.url}">${page.url}</td>
             <td><span class="priority-score ${priorityScore >= 70 ? 'priority-high' : priorityScore >= 40 ? 'priority-medium' : 'priority-low'}">${priorityScore}</span></td>
             <td><span class="bucket-badge bucket-${page.bucket}">${categoryLabel}</span></td>
-            <td>${page.position}</td>
-            <td class="${changeClass}">${changeDisplay}</td>
-            <td>${page.volume.toLocaleString()}</td>
+            <td>${positionDisplay}</td>
+            <td>${changeDisplay}</td>
+            <td>${volumeDisplay}</td>
             <td>${page.inlinks}</td>
             <td>
                 <div class="tech-badges">
@@ -380,6 +425,26 @@ function renderTable() {
             <td><button class="btn-view" onclick="openModal(${page.id})"><i class="fas fa-eye"></i> View</button></td>
         </tr>
     `}).join('');
+    
+    // Show message if no results
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <i class="fas fa-search" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
+                    No pages match your filters
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function formatChange(change) {
+    if (change === 0) return '<span class="change-neutral">—</span>';
+    if (change < 0) {
+        return `<span class="change-down"><i class="fas fa-arrow-down"></i> ${Math.abs(change)}</span>`;
+    }
+    return `<span class="change-up"><i class="fas fa-arrow-up"></i> ${Math.abs(change)}</span>`;
 }
 
 function sortTable(column) {
@@ -432,7 +497,6 @@ function saveConfiguration() {
         return;
     }
     
-    // Save to localStorage
     localStorage.setItem('apiConfig', JSON.stringify({ semrushToken, oncrawlToken }));
     showToast('Configuration saved!', 'success');
 }
@@ -451,7 +515,8 @@ function openModal(pageId) {
     const techItems = [
         { key: 'low_inlinks', label: 'Sufficient Inlinks (≥3)' },
         { key: 'orphaned', label: 'Not Orphaned' },
-        { key: 'deep_page', label: 'Not Too Deep (≤3)' }
+        { key: 'deep_page', label: 'Not Too Deep (≤3)' },
+        { key: 'not_in_sitemap', label: 'In Sitemap' }
     ];
     document.getElementById('techChecklist').innerHTML = techItems.map(item => `
         <li>
@@ -598,16 +663,15 @@ function drawRankingChart(historyData, year) {
 // Export Functions
 // ========================================
 function exportCSV() {
-    const headers = ['URL', 'Priority Score', 'Category', 'Position', 'Change', 'Search Volume', 'Inlinks', 'Depth', 'Tech Issues'];
+    const headers = ['URL', 'Priority Score', 'Category', 'Position', 'Change', 'Search Volume', 'Inlinks', 'Tech Issues'];
     const rows = pagesData.map(p => [
         p.url, 
         p.priority_score || p.priority, 
-        p.bucket === 1 ? 'Poor' : 'Moderate/Well',
-        p.position, 
-        p.change, 
-        p.volume, 
+        p.bucket === 1 ? 'Critical' : 'Moderate',
+        p.position !== null ? p.position : 'Awaiting SEMRush',
+        p.change !== null ? p.change : 'Awaiting SEMRush',
+        p.volume !== null ? p.volume : 'Awaiting SEMRush',
         p.inlinks,
-        p.depth,
         p.techIssues.map(i => techLabels[i] || i).join('; ')
     ]);
     
@@ -642,6 +706,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (config.semrushToken) document.getElementById('semrushToken').value = config.semrushToken;
         if (config.oncrawlToken) document.getElementById('oncrawlToken').value = config.oncrawlToken;
     }
+    
+    // Show loading states
+    setAllMetricsLoading();
+    showTableLoading();
     
     // Try to connect to backend
     const backendAvailable = await testBackendConnection();
