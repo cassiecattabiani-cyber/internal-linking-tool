@@ -168,7 +168,7 @@ class OnCrawlClient:
         self,
         crawl_id: str,
         max_inlinks: int = 3,
-        limit: int = 100
+        limit: int = 1000
     ) -> Dict[str, Any]:
         """Get pages with low internal links (1-3 inlinks, not orphaned)."""
         return self.query_pages(
@@ -186,7 +186,7 @@ class OnCrawlClient:
             limit=limit
         )
     
-    def get_orphaned_pages(self, crawl_id: str, limit: int = 100) -> Dict[str, Any]:
+    def get_orphaned_pages(self, crawl_id: str, limit: int = 1000) -> Dict[str, Any]:
         """Get orphaned pages (0 inlinks)."""
         return self.query_pages(
             crawl_id=crawl_id,
@@ -206,7 +206,7 @@ class OnCrawlClient:
         self,
         crawl_id: str,
         min_depth: int = 4,
-        limit: int = 100
+        limit: int = 1000
     ) -> Dict[str, Any]:
         """Get pages with high crawl depth."""
         return self.query_pages(

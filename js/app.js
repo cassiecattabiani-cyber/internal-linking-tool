@@ -220,7 +220,7 @@ async function loadDashboardData() {
         document.getElementById('notInSitemapCount').textContent = (metrics.not_in_sitemap_pages || 0).toLocaleString();
         
         // Fetch priority pages
-        const priorityData = await fetchFromAPI('/api/dashboard/priority-pages?limit=100');
+        const priorityData = await fetchFromAPI('/api/dashboard/priority-pages?limit=1000');
         
         // Transform API data to match our table format
         pagesData = priorityData.pages.map((page, index) => ({

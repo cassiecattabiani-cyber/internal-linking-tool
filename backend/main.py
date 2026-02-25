@@ -350,7 +350,7 @@ async def get_priority_pages(
     crawl_id: Optional[str] = None,
     market: str = Query(default="global"),
     category: str = Query(default="all"),
-    limit: int = Query(default=50, le=500)
+    limit: int = Query(default=100, le=5000)
 ):
     """
     Get priority pages for internal linking based on technical gaps.
