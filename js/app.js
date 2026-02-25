@@ -486,8 +486,8 @@ function drawRankingChart(historyData, year) {
 
     // Create gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+    gradient.addColorStop(0, 'rgba(26, 26, 26, 0.4)');
+    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.02)');
 
     rankingChartInstance = new Chart(ctx, {
         type: 'line',
@@ -496,7 +496,7 @@ function drawRankingChart(historyData, year) {
             datasets: [{
                 label: 'Position',
                 data: positions,
-                borderColor: '#3b82f6',
+                borderColor: '#1a1a1a',
                 backgroundColor: gradient,
                 borderWidth: 3,
                 fill: true,
@@ -504,9 +504,9 @@ function drawRankingChart(historyData, year) {
                 pointRadius: 6,
                 pointHoverRadius: 10,
                 pointBackgroundColor: '#ffffff',
-                pointBorderColor: '#3b82f6',
+                pointBorderColor: '#1a1a1a',
                 pointBorderWidth: 2,
-                pointHoverBackgroundColor: '#3b82f6',
+                pointHoverBackgroundColor: '#1a1a1a',
                 pointHoverBorderColor: '#ffffff',
                 pointHoverBorderWidth: 3
             }]
@@ -526,7 +526,7 @@ function drawRankingChart(historyData, year) {
                     enabled: true,
                     backgroundColor: isDark ? '#1e293b' : '#ffffff',
                     titleColor: isDark ? '#f1f5f9' : '#1e293b',
-                    bodyColor: '#3b82f6',
+                    bodyColor: '#1a1a1a',
                     titleFont: {
                         size: 14,
                         weight: '600',
