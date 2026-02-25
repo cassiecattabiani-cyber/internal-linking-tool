@@ -1220,25 +1220,29 @@ tr:hover {
    Recommendations Table
    ======================================== */
 .rec-table { 
-    font-size: 12px; 
+    font-size: 14px; 
 }
 
 .rec-table th { 
-    font-size: 11px; 
+    font-size: 13px; 
+}
+
+.rec-table td {
+    padding: 14px 12px;
 }
 
 .relevance-bar {
-    width: 60px;
-    height: 6px;
+    width: 80px;
+    height: 10px;
     background: var(--bg-tertiary);
-    border-radius: 3px;
+    border-radius: 5px;
     overflow: hidden;
 }
 
 .relevance-fill {
     height: 100%;
     background: var(--green);
-    border-radius: 3px;
+    border-radius: 5px;
 }
 
 .anchor-text {
