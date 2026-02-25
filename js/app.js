@@ -419,7 +419,7 @@ function renderTable() {
             <td>${page.inlinks}</td>
             <td>
                 <div class="tech-badges">
-                    ${page.techIssues.map(issue => `<span class="tech-badge">${techLabels[issue] || issue}</span>`).join('')}
+                    ${page.techIssues.map(issue => `<span class="tech-badge ${issue}">${techLabels[issue] || issue}</span>`).join('')}
                 </div>
             </td>
             <td><button class="btn-view" onclick="openModal(${page.id})"><i class="fas fa-eye"></i> View</button></td>
