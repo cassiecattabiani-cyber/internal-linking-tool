@@ -80,6 +80,10 @@ let sortColumn = 'priority_score';
 let sortDirection = 'desc';
 let isUsingRealData = false;
 
+// Pagination
+let currentPage = 1;
+const rowsPerPage = 100;
+
 const techLabels = {
     'low_inlinks': 'Low Inlinks',
     'orphaned': 'Orphaned',
@@ -378,7 +382,19 @@ function renderTable() {
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
     });
 
-    tbody.innerHTML = filtered.map(page => {
+    // Pagination calculations
+    const totalResults = filtered.length;
+    const totalPages = Math.ceil(totalResults / rowsPerPage);
+    
+    // Ensure current page is valid
+    if (currentPage > totalPages) currentPage = totalPages || 1;
+    if (currentPage < 1) currentPage = 1;
+    
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(startIndex + rowsPerPage, totalResults);
+    const paginatedData = filtered.slice(startIndex, endIndex);
+
+    tbody.innerHTML = paginatedData.map(page => {
         const priorityScore = page.priority_score || page.priority;
         const categoryLabel = page.bucket === 1 ? 'Critical' : 'Moderate';
         
@@ -424,6 +440,80 @@ function renderTable() {
             </tr>
         `;
     }
+    
+    // Update pagination UI
+    renderPagination(totalResults, totalPages);
+}
+
+// ========================================
+// Pagination
+// ========================================
+function renderPagination(totalResults, totalPages) {
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationPages = document.getElementById('paginationPages');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    
+    // Update info text
+    if (totalResults === 0) {
+        paginationInfo.textContent = 'No results';
+    } else {
+        const startIndex = (currentPage - 1) * rowsPerPage + 1;
+        const endIndex = Math.min(currentPage * rowsPerPage, totalResults);
+        paginationInfo.textContent = `Showing ${startIndex}-${endIndex} of ${totalResults.toLocaleString()} results`;
+    }
+    
+    // Update prev/next buttons
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage >= totalPages;
+    
+    // Generate page numbers
+    let pagesHTML = '';
+    
+    if (totalPages <= 7) {
+        // Show all pages if 7 or fewer
+        for (let i = 1; i <= totalPages; i++) {
+            pagesHTML += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        }
+    } else {
+        // Show first page
+        pagesHTML += `<button class="pagination-page ${currentPage === 1 ? 'active' : ''}" onclick="goToPage(1)">1</button>`;
+        
+        if (currentPage > 3) {
+            pagesHTML += '<span class="pagination-ellipsis">...</span>';
+        }
+        
+        // Show pages around current
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        
+        for (let i = start; i <= end; i++) {
+            pagesHTML += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        }
+        
+        if (currentPage < totalPages - 2) {
+            pagesHTML += '<span class="pagination-ellipsis">...</span>';
+        }
+        
+        // Show last page
+        pagesHTML += `<button class="pagination-page ${currentPage === totalPages ? 'active' : ''}" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+    
+    paginationPages.innerHTML = pagesHTML;
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    renderTable();
+    // Scroll to top of table
+    document.querySelector('.table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderTable();
+    // Scroll to top of table
+    document.querySelector('.table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function formatChange(change) {
@@ -445,6 +535,7 @@ function sortTable(column) {
 }
 
 function filterTable() {
+    currentPage = 1; // Reset to first page when filters change
     renderTable();
 }
 

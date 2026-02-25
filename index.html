@@ -252,6 +252,21 @@
                     <tbody id="tableBody"></tbody>
                 </table>
             </div>
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <div class="pagination-info">
+                    <span id="paginationInfo">Showing 1-100 of 0 results</span>
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <div class="pagination-pages" id="paginationPages"></div>
+                    <button class="pagination-btn" id="nextPage" onclick="changePage(1)">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
