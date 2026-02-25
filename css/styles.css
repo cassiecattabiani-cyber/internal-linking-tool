@@ -360,18 +360,18 @@ button {
     color: #3b82f6;
 }
 
-.metric-card-small.teal {
-    border-left: 4px solid #14b8a6;
+.metric-card-small.pink {
+    border-left: 4px solid #ec4899;
 }
-.metric-card-small.teal .metric-icon {
-    background: #f0fdfa;
-    color: #14b8a6;
+.metric-card-small.pink .metric-icon {
+    background: #fdf2f8;
+    color: #ec4899;
 }
-.metric-card-small.teal .metric-value-small {
-    color: #14b8a6;
+.metric-card-small.pink .metric-value-small {
+    color: #ec4899;
 }
-.dark .metric-card-small.teal .metric-icon {
-    background: #042f2e;
+.dark .metric-card-small.pink .metric-icon {
+    background: #500724;
 }
 
 /* Loading Spinners */
@@ -1118,11 +1118,11 @@ tr:hover {
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-/* Not in Sitemap - Teal (matches scorecard) */
+/* Not in Sitemap - Pink (matches scorecard) */
 .tech-badge.not_in_sitemap {
-    background: linear-gradient(135deg, #f0fdfa, #ccfbf1);
-    color: #14b8a6;
-    border: 1px solid rgba(20, 184, 166, 0.2);
+    background: linear-gradient(135deg, #fdf2f8, #fce7f3);
+    color: #ec4899;
+    border: 1px solid rgba(236, 72, 153, 0.2);
 }
 
 /* Dark mode tech badges */
@@ -1142,8 +1142,8 @@ tr:hover {
 }
 
 .dark .tech-badge.not_in_sitemap {
-    background: linear-gradient(135deg, #042f2e, #134e4a);
-    border: 1px solid rgba(45, 212, 191, 0.3);
+    background: linear-gradient(135deg, #500724, #831843);
+    border: 1px solid rgba(244, 114, 182, 0.3);
 }
 
 /* View button - Green style to match settings buttons */
