@@ -204,8 +204,19 @@
                         <i class="fas fa-chart-line filter-icon"></i>
                         <select class="filter-select" id="bucketFilter" onchange="filterTable()">
                             <option value="all">All Categories</option>
-                            <option value="poor">Poor Performers</option>
-                            <option value="moderate">Moderate/Well Performers</option>
+                            <option value="critical">Critical</option>
+                            <option value="moderate">Moderate</option>
+                        </select>
+                        <i class="fas fa-chevron-down filter-chevron"></i>
+                    </div>
+                    <div class="filter-wrapper">
+                        <i class="fas fa-exclamation-triangle filter-icon"></i>
+                        <select class="filter-select" id="techIssueFilter" onchange="filterTable()">
+                            <option value="all">All Tech Issues</option>
+                            <option value="low_inlinks">Low Inlinks</option>
+                            <option value="orphaned">Orphaned</option>
+                            <option value="deep_page">Deep Pages</option>
+                            <option value="not_in_sitemap">Not in Sitemap</option>
                         </select>
                         <i class="fas fa-chevron-down filter-chevron"></i>
                     </div>

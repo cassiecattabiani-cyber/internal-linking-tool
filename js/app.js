@@ -365,15 +365,20 @@ function renderTable() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const bucketFilter = document.getElementById('bucketFilter').value;
     const marketFilter = document.getElementById('marketFilter').value;
+    const techIssueFilter = document.getElementById('techIssueFilter').value;
 
     let filtered = pagesData.filter(page => {
         if (searchTerm && !page.url.toLowerCase().includes(searchTerm)) return false;
-        if (bucketFilter === 'poor' && page.bucket !== 1) return false;
+        if (bucketFilter === 'critical' && page.bucket !== 1) return false;
         if (bucketFilter === 'moderate' && page.bucket !== 2) return false;
         
         if (marketFilter !== 'global') {
             const marketPrefix = '/' + marketFilter + '/';
             if (!page.url.toLowerCase().includes(marketPrefix)) return false;
+        }
+        
+        if (techIssueFilter !== 'all') {
+            if (!page.techIssues || !page.techIssues.includes(techIssueFilter)) return false;
         }
         
         return true;
