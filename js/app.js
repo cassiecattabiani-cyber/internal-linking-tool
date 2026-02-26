@@ -1,15 +1,27 @@
 /**
- * Internal Linking Tool - Main Application
- * SEO Dashboard for identifying underperforming pages and interlink recommendations
+ * Internal Linking Tool v2 - Split-View Dashboard
  */
 
-// ========================================
-// Configuration
-// ========================================
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
+// Data Storage
+let pagesData = [];
+let filteredData = [];
+let selectedPage = null;
+let currentPage = 1;
+const rowsPerPage = 100;
+let sortColumn = 'priority_score';
+let sortDirection = 'desc';
+
+const techLabels = {
+    'low_inlinks': 'Low Inlinks',
+    'orphaned': 'Orphaned',
+    'deep_page': 'Deep Page',
+    'not_in_sitemap': 'Not in Sitemap'
+};
+
 // ========================================
-// Toast Notification System
+// Toast Notifications
 // ========================================
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -25,503 +37,378 @@ function showToast(message, type = 'info', duration = 4000) {
     
     toast.innerHTML = `
         <i class="fas ${icons[type]}"></i>
-        <span class="toast-message">${message}</span>
-        <button class="toast-close" onclick="dismissToast(this.parentElement)">
-            <i class="fas fa-times"></i>
-        </button>
+        <span>${message}</span>
     `;
     
     container.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+}
+
+// ========================================
+// Tab Navigation
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = item.dataset.tab;
+            
+            // Update nav
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(`${tab}-tab`).classList.add('active');
+        });
+    });
     
-    setTimeout(() => {
-        dismissToast(toast);
-    }, duration);
-}
+    // Initialize
+    initializeApp();
+});
 
-function dismissToast(toast) {
-    if (toast && toast.parentElement) {
-        toast.classList.add('hiding');
-        setTimeout(() => {
-            if (toast.parentElement) {
-                toast.parentElement.removeChild(toast);
-            }
-        }, 300);
-    }
-}
-
-// ========================================
-// API Connection Status
-// ========================================
-let apiStatus = {
-    semrush: 'disconnected',
-    oncrawl: 'disconnected'
-};
-
-function updateStatusDot(api, status) {
-    const dot = document.getElementById(`${api}Status`);
-    if (dot) {
-        dot.className = 'status-dot ' + status;
-        const titles = {
-            connected: 'Connected',
-            disconnected: 'Not connected',
-            pending: 'Testing connection...'
-        };
-        dot.title = titles[status] || 'Unknown';
-    }
-    apiStatus[api] = status;
-}
-
-// ========================================
-// Data Storage
-// ========================================
-let pagesData = [];
-let dashboardMetrics = {};
-let sortColumn = 'priority_score';
-let sortDirection = 'desc';
-let isUsingRealData = false;
-
-// Pagination
-let currentPage = 1;
-const rowsPerPage = 100;
-
-const techLabels = {
-    'low_inlinks': 'Low Inlinks',
-    'orphaned': 'Orphaned',
-    'deep_page': 'Deep Page',
-    'not_in_sitemap': 'Not in Sitemap'
-};
-
-// ========================================
-// Loading States
-// ========================================
-function showTableLoading() {
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="9">
-                <div class="table-loading">
-                    <span class="spinner"></span>
-                    <span class="table-loading-text">Loading page data...</span>
-                </div>
-            </td>
-        </tr>
-    `;
-}
-
-function setMetricLoading(elementId) {
-    const el = document.getElementById(elementId);
-    if (el) {
-        const isSmall = el.classList.contains('metric-value-small') || elementId.includes('Count');
-        el.innerHTML = `<span class="${isSmall ? 'spinner-small' : 'spinner'}"></span>`;
-    }
-}
-
-function setAllMetricsLoading() {
-    // Main metrics
-    setMetricLoading('totalPages');
-    setMetricLoading('poorPerformers');
-    setMetricLoading('wellPerformers');
+async function initializeApp() {
+    showToast('Loading data...', 'info', 2000);
     
-    // Technical gap metrics
-    setMetricLoading('lowInlinksCount');
-    setMetricLoading('orphanedCount');
-    setMetricLoading('deepPagesCount');
-    setMetricLoading('notInSitemapCount');
+    const backendAvailable = await testBackendConnection();
+    
+    if (backendAvailable) {
+        showToast('Connected to backend!', 'success');
+        await loadDashboardData();
+    } else {
+        showToast('Backend not available. Using mock data.', 'warning');
+        generateMockData();
+    }
 }
 
 // ========================================
 // API Functions
 // ========================================
 async function fetchFromAPI(endpoint) {
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(`API Error (${endpoint}):`, error);
-        throw error;
-    }
+    const response = await fetch(`${API_BASE_URL}${endpoint}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
 }
 
 async function testBackendConnection() {
     try {
         const health = await fetchFromAPI('/health');
         return health.status === 'healthy';
-    } catch (error) {
+    } catch {
         return false;
     }
 }
 
-async function testOncrawlAPI() {
-    updateStatusDot('oncrawl', 'pending');
-    showToast('Testing OnCrawl connection...', 'info', 2000);
-    
-    try {
-        const result = await fetchFromAPI('/api/oncrawl/test');
-        
-        if (result.success) {
-            updateStatusDot('oncrawl', 'connected');
-            showToast(`OnCrawl connected! Found ${result.project_count} projects.`, 'success');
-            await loadDashboardData();
-        } else {
-            updateStatusDot('oncrawl', 'disconnected');
-            showToast('OnCrawl connection failed: ' + result.message, 'error');
-        }
-    } catch (error) {
-        updateStatusDot('oncrawl', 'disconnected');
-        showToast('Backend not available. Using mock data.', 'warning');
-        generateMockData();
-    }
-}
-
-function testSemrushAPI() {
-    const token = document.getElementById('semrushToken').value;
-    if (!token) {
-        showToast('Please enter a SEMRush API token', 'warning');
-        return;
-    }
-    
-    updateStatusDot('semrush', 'pending');
-    showToast('Testing SEMRush connection...', 'info', 2000);
-    
-    setTimeout(() => {
-        showToast('SEMRush integration coming soon', 'info');
-        updateStatusDot('semrush', 'disconnected');
-    }, 1500);
-}
-
 async function loadDashboardData() {
     try {
-        setAllMetricsLoading();
-        showTableLoading();
-        showToast('Loading data from OnCrawl...', 'info', 2000);
-        
-        // Fetch dashboard metrics
+        // Load metrics
         const metrics = await fetchFromAPI('/api/dashboard/metrics');
-        dashboardMetrics = metrics;
+        updateSidebarStats(metrics);
+        updateGapsCards(metrics);
         
-        // Update main metric cards
-        document.getElementById('totalPages').textContent = metrics.total_pages.toLocaleString();
-        
-        // Critical = orphaned + pages with multiple issues (estimate)
-        const criticalCount = metrics.orphaned_pages;
-        document.getElementById('poorPerformers').textContent = criticalCount.toLocaleString();
-        
-        // Moderate = low inlinks (non-orphaned)
-        const moderateCount = metrics.low_inlinks_pages || 0;
-        document.getElementById('wellPerformers').textContent = moderateCount.toLocaleString();
-        
-        // Update technical gap cards
-        document.getElementById('lowInlinksCount').textContent = (metrics.low_inlinks_pages || 0).toLocaleString();
-        document.getElementById('orphanedCount').textContent = (metrics.orphaned_pages || 0).toLocaleString();
-        document.getElementById('deepPagesCount').textContent = (metrics.deep_pages || 0).toLocaleString();
-        document.getElementById('notInSitemapCount').textContent = (metrics.not_in_sitemap_pages || 0).toLocaleString();
-        
-        // Fetch priority pages
+        // Load pages
         const priorityData = await fetchFromAPI('/api/dashboard/priority-pages?limit=1000');
         
-        // Transform API data to match our table format
         pagesData = priorityData.pages.map((page, index) => ({
             id: index,
             url: page.url,
-            priority: page.priority_score,
+            title: page.title || page.url,
             priority_score: page.priority_score,
             bucket: page.technical_gaps.includes('orphaned') || page.technical_gaps.length >= 2 ? 1 : 2,
-            position: null, // Awaiting SEMRush
-            change: null, // Awaiting SEMRush
-            volume: null, // Awaiting SEMRush
+            position: null,
             inlinks: page.nb_inlinks || 0,
             depth: page.depth || 0,
-            title: page.title || '',
             techIssues: page.technical_gaps || [],
-            keywords: generateKeywords(),
-            rankHistory: generateRankHistory(Math.floor(Math.random() * 30) + 1),
-            recommendations: generateRecommendations()
+            recommendations: []
         }));
         
-        isUsingRealData = true;
+        applyFilters();
+        renderPageCards();
         renderTable();
-        showToast(`Loaded ${pagesData.length} priority pages from OnCrawl`, 'success');
+        renderGapsTable();
         
+        showToast(`Loaded ${pagesData.length} pages`, 'success');
     } catch (error) {
-        console.error('Failed to load dashboard data:', error);
-        showToast('Failed to load data. Using mock data.', 'warning');
+        console.error('Failed to load data:', error);
+        showToast('Failed to load data', 'error');
         generateMockData();
     }
 }
 
-// ========================================
-// Mock Data Generation (Fallback)
-// ========================================
-const urlPaths = [
-    '/us/blog/seo-best-practices', '/us/products/analytics-tool', '/us/guides/keyword-research',
-    '/us/blog/link-building-strategies', '/us/services/technical-seo', '/us/blog/content-optimization',
-    '/au/blog/seo-best-practices', '/au/products/analytics-tool', '/au/guides/keyword-research',
-    '/gb/blog/seo-best-practices', '/gb/products/analytics-tool', '/gb/guides/keyword-research',
-    '/ca/blog/seo-best-practices', '/ca/products/analytics-tool', '/ca/guides/keyword-research',
-    '/ie/blog/seo-best-practices', '/ie/products/analytics-tool',
-    '/es/blog/seo-best-practices', '/es/products/analytics-tool',
-    '/jp/blog/seo-best-practices', '/jp/products/analytics-tool',
-    '/fr/blog/seo-best-practices', '/fr/products/analytics-tool',
-    '/products/rank-tracker', '/guides/local-seo', '/blog/mobile-seo-tips',
-    '/services/site-audit', '/blog/voice-search-optimization', '/products/backlink-analyzer'
-];
-
 function generateMockData() {
-    isUsingRealData = false;
+    const urls = [
+        '/us/blog/payment-processing', '/us/guides/pos-systems', '/au/products/invoices',
+        '/gb/blog/small-business-tips', '/us/services/payroll', '/ca/guides/ecommerce',
+        '/us/blog/inventory-management', '/au/services/appointments', '/gb/products/hardware',
+        '/us/guides/restaurant-pos', '/ca/blog/retail-tips', '/us/products/online-store',
+        '/au/blog/marketing-tips', '/gb/services/banking', '/us/guides/team-management'
+    ];
     
-    // Update metrics with mock data
-    document.getElementById('totalPages').textContent = '1,247';
-    document.getElementById('poorPerformers').textContent = '89';
-    document.getElementById('wellPerformers').textContent = '342';
-    document.getElementById('lowInlinksCount').textContent = '342';
-    document.getElementById('orphanedCount').textContent = '89';
-    document.getElementById('deepPagesCount').textContent = '567';
-    document.getElementById('notInSitemapCount').textContent = '23';
-    
-    pagesData = urlPaths.map((path, index) => {
-        const bucket = Math.random() > 0.6 ? 1 : 2;
-        const position = Math.floor(Math.random() * 50) + 1;
-        const change = Math.floor(Math.random() * 20) - 10;
-        const volume = Math.floor(Math.random() * 10000) + 100;
-        const inlinks = Math.floor(Math.random() * 15);
-        const issues = ['low_inlinks', 'orphaned', 'deep_page'].filter(() => Math.random() > 0.7);
+    pagesData = urls.map((url, index) => {
+        const issues = [];
+        if (Math.random() > 0.5) issues.push('low_inlinks');
+        if (Math.random() > 0.7) issues.push('orphaned');
+        if (Math.random() > 0.6) issues.push('deep_page');
+        if (Math.random() > 0.8) issues.push('not_in_sitemap');
+        if (issues.length === 0) issues.push('low_inlinks');
         
-        if (inlinks < 3 && !issues.includes('low_inlinks')) {
-            issues.push('low_inlinks');
-        }
-        
-        let priority = 0;
-        if (bucket === 1) priority += 40;
-        if (change > 3) priority += 20;
-        if (inlinks < 3) priority += 15;
-        if (issues.length > 0) priority += issues.length * 5;
-        if (volume > 1000) priority += 10;
-        priority = Math.min(100, priority);
-
         return {
             id: index,
-            url: path,
-            priority,
-            priority_score: priority,
-            bucket,
-            position,
-            change,
-            volume,
-            inlinks,
-            depth: Math.floor(Math.random() * 5) + 1,
-            title: 'Page Title ' + index,
+            url: url,
+            title: url.split('/').pop().replace(/-/g, ' '),
+            priority_score: Math.floor(Math.random() * 50) + 50,
+            bucket: issues.includes('orphaned') ? 1 : 2,
+            position: null,
+            inlinks: Math.floor(Math.random() * 5),
+            depth: Math.floor(Math.random() * 6) + 1,
             techIssues: issues,
-            keywords: generateKeywords(),
-            rankHistory: generateRankHistory(position),
-            recommendations: generateRecommendations()
+            recommendations: []
         };
     });
     
+    // Update sidebar
+    document.getElementById('sidebarTotal').textContent = '1,247';
+    document.getElementById('sidebarCritical').textContent = '89';
+    document.getElementById('sidebarModerate').textContent = '342';
+    
+    // Update gaps
+    document.getElementById('gapLowInlinks').textContent = '342';
+    document.getElementById('gapOrphaned').textContent = '89';
+    document.getElementById('gapDeepPages').textContent = '567';
+    document.getElementById('gapNotInSitemap').textContent = '23';
+    
+    applyFilters();
+    renderPageCards();
     renderTable();
+    renderGapsTable();
 }
 
-function generateKeywords() {
-    const keywords = ['SEO optimization', 'search rankings', 'organic traffic', 'backlinks', 
-        'keyword research', 'content strategy', 'technical SEO', 'link building'];
-    const count = Math.floor(Math.random() * 4) + 2;
-    return keywords.slice(0, count).map(kw => ({
-        keyword: kw,
-        volume: Math.floor(Math.random() * 5000) + 100
-    }));
+function updateSidebarStats(metrics) {
+    document.getElementById('sidebarTotal').textContent = (metrics.total_pages || 0).toLocaleString();
+    document.getElementById('sidebarCritical').textContent = (metrics.orphaned_pages || 0).toLocaleString();
+    document.getElementById('sidebarModerate').textContent = (metrics.low_inlinks_pages || 0).toLocaleString();
 }
 
-function generateRankHistory(currentPos) {
-    // Return empty object - ranking history requires SEMRush data
-    return {};
-}
-
-function generateRecommendations() {
-    // Return empty array - recommendations require SEMRush data
-    return [];
+function updateGapsCards(metrics) {
+    document.getElementById('gapLowInlinks').textContent = (metrics.low_inlinks_pages || 0).toLocaleString();
+    document.getElementById('gapOrphaned').textContent = (metrics.orphaned_pages || 0).toLocaleString();
+    document.getElementById('gapDeepPages').textContent = (metrics.deep_pages || 0).toLocaleString();
+    document.getElementById('gapNotInSitemap').textContent = (metrics.not_in_sitemap_pages || 0).toLocaleString();
 }
 
 // ========================================
-// Table Rendering
+// Filtering
 // ========================================
-function renderTable() {
-    const tbody = document.getElementById('tableBody');
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const bucketFilter = document.getElementById('bucketFilter').value;
-    const marketFilter = document.getElementById('marketFilter').value;
-    const techIssueFilter = document.getElementById('techIssueFilter').value;
-
-    let filtered = pagesData.filter(page => {
-        if (searchTerm && !page.url.toLowerCase().includes(searchTerm)) return false;
-        if (bucketFilter === 'critical' && page.bucket !== 1) return false;
-        if (bucketFilter === 'moderate' && page.bucket !== 2) return false;
-        
-        if (marketFilter !== 'global') {
-            const marketPrefix = '/' + marketFilter + '/';
-            if (!page.url.toLowerCase().includes(marketPrefix)) return false;
-        }
-        
-        if (techIssueFilter !== 'all') {
-            if (!page.techIssues || !page.techIssues.includes(techIssueFilter)) return false;
-        }
-        
+function applyFilters() {
+    const search = document.getElementById('globalSearch').value.toLowerCase();
+    const market = document.getElementById('marketFilter').value;
+    const techIssue = document.getElementById('techIssueFilter').value;
+    
+    filteredData = pagesData.filter(page => {
+        if (search && !page.url.toLowerCase().includes(search)) return false;
+        if (market !== 'global' && !page.url.includes(`/${market}/`)) return false;
+        if (techIssue !== 'all' && !page.techIssues.includes(techIssue)) return false;
         return true;
     });
-
-    filtered.sort((a, b) => {
+    
+    // Sort
+    filteredData.sort((a, b) => {
         let aVal = a[sortColumn];
         let bVal = b[sortColumn];
         if (sortColumn === 'url') {
             return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
-        // Handle null values
         if (aVal === null) aVal = sortDirection === 'asc' ? Infinity : -Infinity;
         if (bVal === null) bVal = sortDirection === 'asc' ? Infinity : -Infinity;
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
     });
+    
+    currentPage = 1;
+}
 
-    // Pagination calculations
-    const totalResults = filtered.length;
-    const totalPages = Math.ceil(totalResults / rowsPerPage);
-    
-    // Ensure current page is valid
-    if (currentPage > totalPages) currentPage = totalPages || 1;
-    if (currentPage < 1) currentPage = 1;
-    
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = Math.min(startIndex + rowsPerPage, totalResults);
-    const paginatedData = filtered.slice(startIndex, endIndex);
-
-    tbody.innerHTML = paginatedData.map(page => {
-        const priorityScore = page.priority_score || page.priority;
-        const categoryLabel = page.bucket === 1 ? 'Critical' : 'Moderate';
-        
-        // SEMRush data - show awaiting badge if null
-        const positionDisplay = page.position !== null 
-            ? page.position 
-            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
-        
-        const changeDisplay = page.change !== null 
-            ? formatChange(page.change)
-            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
-        
-        const volumeDisplay = page.volume !== null 
-            ? page.volume.toLocaleString()
-            : '<span class="awaiting-data"><i class="fas fa-clock"></i> Awaiting SEMRush</span>';
-        
-        return `
-        <tr>
-            <td class="url-cell" title="${page.url}">${page.url}</td>
-            <td><span class="priority-score ${priorityScore >= 70 ? 'priority-high' : priorityScore >= 40 ? 'priority-medium' : 'priority-low'}">${priorityScore}</span></td>
-            <td><span class="bucket-badge bucket-${page.bucket}">${categoryLabel}</span></td>
-            <td>${positionDisplay}</td>
-            <td>${changeDisplay}</td>
-            <td>${volumeDisplay}</td>
-            <td>${page.inlinks}</td>
-            <td>
-                <div class="tech-badges">
-                    ${page.techIssues.map(issue => `<span class="tech-badge ${issue}">${techLabels[issue] || issue}</span>`).join('')}
-                </div>
-            </td>
-            <td><button class="btn-view" onclick="openModal(${page.id})"><i class="fas fa-eye"></i> View</button></td>
-        </tr>
-    `}).join('');
-    
-    // Show message if no results
-    if (filtered.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    <i class="fas fa-search" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
-                    No pages match your filters
-                </td>
-            </tr>
-        `;
-    }
-    
-    // Update pagination UI
-    renderPagination(totalResults, totalPages);
+function handleSearch() {
+    applyFilters();
+    renderPageCards();
+    renderTable();
 }
 
 // ========================================
-// Pagination
+// Page Cards (Dashboard)
 // ========================================
-function renderPagination(totalResults, totalPages) {
-    const paginationInfo = document.getElementById('paginationInfo');
-    const paginationPages = document.getElementById('paginationPages');
+function renderPageCards() {
+    const container = document.getElementById('pageCardsContainer');
+    const topPages = filteredData.slice(0, 8);
+    
+    if (topPages.length === 0) {
+        container.innerHTML = `
+            <div class="loading-cards">
+                <i class="fas fa-search"></i>
+                <span>No pages match your filters</span>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = topPages.map(page => {
+        const scoreClass = page.priority_score >= 80 ? 'critical' : page.priority_score >= 60 ? 'high' : 'moderate';
+        const categoryClass = page.bucket === 1 ? 'critical' : 'moderate';
+        const categoryLabel = page.bucket === 1 ? 'Critical' : 'Moderate';
+        const isSelected = selectedPage && selectedPage.id === page.id;
+        
+        return `
+            <div class="page-card ${isSelected ? 'selected' : ''}" onclick="selectPage(${page.id})">
+                <div class="page-card-header">
+                    <span class="page-card-score ${scoreClass}">${page.priority_score}</span>
+                    <span class="page-card-category ${categoryClass}">${categoryLabel}</span>
+                </div>
+                <div class="page-card-url" title="${page.url}">${page.url}</div>
+                <div class="page-card-issues">
+                    ${page.techIssues.map(issue => `
+                        <span class="issue-tag ${issue}">${techLabels[issue]}</span>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectPage(pageId) {
+    selectedPage = pagesData.find(p => p.id === pageId);
+    renderPageCards();
+    renderDetailsPanel();
+}
+
+function renderDetailsPanel() {
+    const placeholder = document.getElementById('detailsPlaceholder');
+    const content = document.getElementById('detailsContent');
+    
+    if (!selectedPage) {
+        placeholder.style.display = 'flex';
+        content.style.display = 'none';
+        return;
+    }
+    
+    placeholder.style.display = 'none';
+    content.style.display = 'block';
+    
+    // Update header
+    document.getElementById('detailsTitle').textContent = selectedPage.title;
+    document.getElementById('detailsUrl').textContent = selectedPage.url;
+    
+    // Update metrics
+    document.getElementById('detailsPosition').innerHTML = selectedPage.position !== null 
+        ? selectedPage.position 
+        : '<span class="awaiting-badge"><i class="fas fa-clock"></i> Awaiting</span>';
+    document.getElementById('detailsInlinks').textContent = selectedPage.inlinks;
+    document.getElementById('detailsDepth').textContent = selectedPage.depth;
+    document.getElementById('detailsScore').textContent = selectedPage.priority_score;
+    
+    // Update tech checklist
+    const techItems = [
+        { key: 'low_inlinks', label: 'Sufficient Inlinks (≥3)' },
+        { key: 'orphaned', label: 'Not Orphaned' },
+        { key: 'deep_page', label: 'Not Too Deep (≤3)' },
+        { key: 'not_in_sitemap', label: 'In Sitemap' }
+    ];
+    
+    document.getElementById('techChecklist').innerHTML = techItems.map(item => `
+        <li>
+            <i class="fas ${selectedPage.techIssues.includes(item.key) ? 'fa-times-circle' : 'fa-check-circle'}"></i>
+            ${item.label}
+        </li>
+    `).join('');
+    
+    // Update recommendations (awaiting SEMRush)
+    document.getElementById('recommendationsBody').innerHTML = `
+        <tr>
+            <td colspan="4" style="text-align: center; padding: 32px;">
+                <span class="awaiting-badge">
+                    <i class="fas fa-clock"></i> Awaiting SEMRush - Recommendations require keyword data
+                </span>
+            </td>
+        </tr>
+    `;
+}
+
+// ========================================
+// Priority Queue Table
+// ========================================
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    
+    // Pagination
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = Math.min(start + rowsPerPage, filteredData.length);
+    const pageData = filteredData.slice(start, end);
+    
+    tbody.innerHTML = pageData.map(page => {
+        const scoreClass = page.priority_score >= 70 ? 'high' : page.priority_score >= 40 ? 'medium' : 'low';
+        const categoryClass = page.bucket === 1 ? 'critical' : 'moderate';
+        const categoryLabel = page.bucket === 1 ? 'Critical' : 'Moderate';
+        
+        return `
+            <tr>
+                <td class="url-cell" title="${page.url}">${page.url}</td>
+                <td><span class="score-badge ${scoreClass}">${page.priority_score}</span></td>
+                <td><span class="category-badge ${categoryClass}">${categoryLabel}</span></td>
+                <td>${page.position !== null ? page.position : '<span class="awaiting-badge"><i class="fas fa-clock"></i></span>'}</td>
+                <td>${page.inlinks}</td>
+                <td>
+                    <div class="tech-badges">
+                        ${page.techIssues.map(issue => `<span class="issue-tag ${issue}">${techLabels[issue]}</span>`).join('')}
+                    </div>
+                </td>
+                <td><button class="btn-view" onclick="viewPage(${page.id})">View</button></td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Update results count
+    document.getElementById('resultsCount').textContent = `${filteredData.length} results`;
+    
+    // Update pagination
+    renderPagination(filteredData.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+    const info = document.getElementById('paginationInfo');
+    const pages = document.getElementById('paginationPages');
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
     
-    // Update info text
-    if (totalResults === 0) {
-        paginationInfo.textContent = 'No results';
+    if (total === 0) {
+        info.textContent = 'No results';
     } else {
-        const startIndex = (currentPage - 1) * rowsPerPage + 1;
-        const endIndex = Math.min(currentPage * rowsPerPage, totalResults);
-        paginationInfo.textContent = `Showing ${startIndex}-${endIndex} of ${totalResults.toLocaleString()} results`;
+        const start = (currentPage - 1) * rowsPerPage + 1;
+        const end = Math.min(currentPage * rowsPerPage, total);
+        info.textContent = `Showing ${start}-${end} of ${total}`;
     }
     
-    // Update prev/next buttons
     prevBtn.disabled = currentPage <= 1;
     nextBtn.disabled = currentPage >= totalPages;
     
-    // Generate page numbers
     let pagesHTML = '';
+    const maxPages = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxPages - 1);
     
-    if (totalPages <= 7) {
-        // Show all pages if 7 or fewer
-        for (let i = 1; i <= totalPages; i++) {
-            pagesHTML += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
-        }
-    } else {
-        // Show first page
-        pagesHTML += `<button class="pagination-page ${currentPage === 1 ? 'active' : ''}" onclick="goToPage(1)">1</button>`;
-        
-        if (currentPage > 3) {
-            pagesHTML += '<span class="pagination-ellipsis">...</span>';
-        }
-        
-        // Show pages around current
-        const start = Math.max(2, currentPage - 1);
-        const end = Math.min(totalPages - 1, currentPage + 1);
-        
-        for (let i = start; i <= end; i++) {
-            pagesHTML += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
-        }
-        
-        if (currentPage < totalPages - 2) {
-            pagesHTML += '<span class="pagination-ellipsis">...</span>';
-        }
-        
-        // Show last page
-        pagesHTML += `<button class="pagination-page ${currentPage === totalPages ? 'active' : ''}" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    for (let i = startPage; i <= endPage; i++) {
+        pagesHTML += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
     }
     
-    paginationPages.innerHTML = pagesHTML;
+    pages.innerHTML = pagesHTML;
 }
 
 function changePage(delta) {
     currentPage += delta;
     renderTable();
-    // Scroll to top of table
-    document.querySelector('.table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function goToPage(page) {
     currentPage = page;
     renderTable();
-    // Scroll to top of table
-    document.querySelector('.table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function formatChange(change) {
-    if (change === 0) return '<span class="change-neutral">—</span>';
-    if (change < 0) {
-        return `<span class="change-down"><i class="fas fa-arrow-down"></i> ${Math.abs(change)}</span>`;
-    }
-    return `<span class="change-up"><i class="fas fa-arrow-up"></i> ${Math.abs(change)}</span>`;
 }
 
 function sortTable(column) {
@@ -531,268 +418,154 @@ function sortTable(column) {
         sortColumn = column;
         sortDirection = 'desc';
     }
+    applyFilters();
     renderTable();
 }
 
-function filterTable() {
-    currentPage = 1; // Reset to first page when filters change
-    renderTable();
-}
-
-// ========================================
-// UI Controls
-// ========================================
-function togglePanel(panelId) {
-    document.getElementById(panelId).classList.toggle('collapsed');
-}
-
-function toggleDarkMode() {
-    document.body.classList.toggle('dark');
-    showToast('Theme changed', 'info', 2000);
-}
-
-function updateSlider(name) {
-    const slider = document.getElementById(name + 'Slider');
-    const value = document.getElementById(name + 'Value');
-    value.textContent = slider.value;
-}
-
-function applySettings() {
-    showToast('Settings applied! Recalculating priorities...', 'success');
-    if (isUsingRealData) {
-        loadDashboardData();
-    } else {
-        generateMockData();
-    }
-}
-
-function saveConfiguration() {
-    const semrushToken = document.getElementById('semrushToken').value;
-    const oncrawlToken = document.getElementById('oncrawlToken').value;
+function viewPage(pageId) {
+    const page = pagesData.find(p => p.id === pageId);
+    if (!page) return;
     
-    if (!semrushToken && !oncrawlToken) {
-        showToast('Please enter at least one API token', 'warning');
-        return;
-    }
-    
-    localStorage.setItem('apiConfig', JSON.stringify({ semrushToken, oncrawlToken }));
-    showToast('Configuration saved!', 'success');
+    openModal(page);
 }
 
 // ========================================
 // Modal Functions
 // ========================================
-function openModal(pageId) {
-    const page = pagesData.find(p => p.id === pageId);
-    if (!page) return;
-
-    document.getElementById('modalTitle').textContent = page.title || page.url;
-    document.getElementById('modalOverlay').classList.add('active');
-
-    // Render tech checklist
+function openModal(page) {
+    const modal = document.getElementById('pageModal');
+    
+    // Update modal content
+    document.getElementById('modalTitle').textContent = page.title || 'Page Details';
+    document.getElementById('modalUrl').textContent = page.url;
+    
+    // Update metrics
+    document.getElementById('modalPosition').innerHTML = page.position !== null 
+        ? page.position 
+        : '<span class="awaiting-badge"><i class="fas fa-clock"></i> Awaiting</span>';
+    document.getElementById('modalInlinks').textContent = page.inlinks;
+    document.getElementById('modalDepth').textContent = page.depth;
+    document.getElementById('modalScore').textContent = page.priority_score;
+    
+    // Update tech checklist
     const techItems = [
         { key: 'low_inlinks', label: 'Sufficient Inlinks (≥3)' },
         { key: 'orphaned', label: 'Not Orphaned' },
         { key: 'deep_page', label: 'Not Too Deep (≤3)' },
         { key: 'not_in_sitemap', label: 'In Sitemap' }
     ];
-    document.getElementById('techChecklist').innerHTML = techItems.map(item => `
+    
+    document.getElementById('modalTechChecklist').innerHTML = techItems.map(item => `
         <li>
-            <i class="fas ${page.techIssues.includes(item.key) ? 'fa-times-circle issue' : 'fa-check-circle ok'}"></i>
+            <i class="fas ${page.techIssues.includes(item.key) ? 'fa-times-circle' : 'fa-check-circle'}"></i>
             ${item.label}
         </li>
     `).join('');
-
-    // Render recommendations - show awaiting badge if no real data
-    const hasRecommendations = page.recommendations && page.recommendations.length > 0 && page.recommendations[0].relevance !== null;
     
-    if (hasRecommendations) {
-        document.getElementById('recTableBody').innerHTML = page.recommendations.map(rec => `
-            <tr>
-                <td class="url-cell">${rec.source}</td>
-                <td>
-                    <div class="relevance-bar"><div class="relevance-fill" style="width: ${rec.relevance}%"></div></div>
-                    <span style="font-size: 11px; margin-left: 8px;">${rec.relevance}%</span>
-                </td>
-                <td class="anchor-text">"${rec.anchor}"</td>
-                <td><button class="btn btn-secondary btn-view" onclick="addLink('${rec.source}')">Add Link</button></td>
-            </tr>
-        `).join('');
-    } else {
-        document.getElementById('recTableBody').innerHTML = `
-            <tr>
-                <td colspan="4" style="text-align: center; padding: 40px;">
-                    <span class="awaiting-data" style="font-size: 13px; padding: 8px 16px;">
-                        <i class="fas fa-clock"></i> Awaiting SEMRush - Interlink recommendations require keyword and ranking data
-                    </span>
-                </td>
-            </tr>
-        `;
-    }
-
-    window.currentChartPage = page;
-    
-    // Check if we have ranking history data
-    const hasRankingData = page.rankHistory && Object.keys(page.rankHistory).length > 0 && 
-        Object.values(page.rankHistory).some(yearData => yearData && yearData.length > 0);
-    
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    const chartHeader = document.querySelector('.chart-header');
-    
-    if (hasRankingData) {
-        chartWrapper.style.display = 'block';
-        chartHeader.querySelector('.year-selector').style.display = 'block';
-        setTimeout(() => {
-            const selectedYear = document.getElementById('yearSelector').value;
-            drawRankingChart(page.rankHistory, selectedYear);
-        }, 100);
-    } else {
-        // Hide chart and show awaiting message
-        chartWrapper.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px;">
-                <span class="awaiting-data" style="font-size: 13px; padding: 8px 16px;">
-                    <i class="fas fa-clock"></i> Awaiting SEMRush - Ranking history requires position tracking data
+    // Update recommendations (awaiting SEMRush)
+    document.getElementById('modalRecommendationsBody').innerHTML = `
+        <tr>
+            <td colspan="4" style="text-align: center; padding: 32px;">
+                <span class="awaiting-badge">
+                    <i class="fas fa-clock"></i> Awaiting SEMRush - Recommendations require keyword data
                 </span>
-            </div>
-        `;
-        chartHeader.querySelector('.year-selector').style.display = 'none';
-    }
-}
-
-function addLink(source) {
-    showToast(`Link from "${source}" added to queue`, 'success');
+            </td>
+        </tr>
+    `;
+    
+    // Show modal
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeModal(event) {
-    if (!event || event.target === document.getElementById('modalOverlay')) {
-        document.getElementById('modalOverlay').classList.remove('active');
-    }
+    // If called from overlay click, only close if clicking the overlay itself
+    if (event && event.target !== event.currentTarget) return;
+    
+    const modal = document.getElementById('pageModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
-function updateChartYear() {
-    if (window.currentChartPage) {
-        const selectedYear = document.getElementById('yearSelector').value;
-        drawRankingChart(window.currentChartPage.rankHistory, selectedYear);
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
     }
+});
+
+// ========================================
+// Technical Gaps Table
+// ========================================
+function renderGapsTable() {
+    // This could be expanded to show a filtered table by gap type
 }
 
 // ========================================
-// Chart.js Implementation
+// Settings
 // ========================================
-let rankingChartInstance = null;
+function updateSlider(name) {
+    const slider = document.getElementById(`${name}Slider`);
+    const value = document.getElementById(`${name}Value`);
+    value.textContent = slider.value;
+}
 
-function drawRankingChart(historyData, year) {
-    const canvas = document.getElementById('rankingChart');
-    const ctx = canvas.getContext('2d');
+function saveSettings() {
+    showToast('Settings saved!', 'success');
+}
+
+function testConnections() {
+    showToast('Testing connections...', 'info');
     
-    if (rankingChartInstance) {
-        rankingChartInstance.destroy();
-    }
-
-    const history = historyData[year] || historyData[2024] || [];
-    const months = history.map(h => h.month);
-    const positions = history.map(h => h.position);
+    const oncrawlStatus = document.getElementById('oncrawlStatus');
+    const semrushStatus = document.getElementById('semrushStatus');
     
-    const isDark = document.body.classList.contains('dark');
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-    const gridColor = isDark ? '#334155' : '#e2e8f0';
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(26, 26, 26, 0.4)');
-    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.02)');
-
-    rankingChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: months,
-            datasets: [{
-                label: 'Position',
-                data: positions,
-                borderColor: '#1a1a1a',
-                backgroundColor: gradient,
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 6,
-                pointHoverRadius: 10,
-                pointBackgroundColor: '#ffffff',
-                pointBorderColor: '#1a1a1a',
-                pointBorderWidth: 2,
-                pointHoverBackgroundColor: '#1a1a1a',
-                pointHoverBorderColor: '#ffffff',
-                pointHoverBorderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    enabled: true,
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#1e293b',
-                    bodyColor: '#1a1a1a',
-                    titleFont: { size: 14, weight: '600', family: 'Inter' },
-                    bodyFont: { size: 18, weight: '700', family: 'Inter' },
-                    padding: 14,
-                    cornerRadius: 10,
-                    borderColor: isDark ? '#475569' : '#e2e8f0',
-                    borderWidth: 1,
-                    displayColors: false,
-                    callbacks: {
-                        title: (context) => context[0].label + ' ' + year,
-                        label: (context) => 'Position: ' + context.parsed.y
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { color: gridColor, drawBorder: false },
-                    ticks: { color: textColor, font: { size: 11, family: 'Inter' } }
-                },
-                y: {
-                    reverse: true,
-                    grid: { color: gridColor, drawBorder: false },
-                    ticks: { color: textColor, font: { size: 11, family: 'Inter' }, stepSize: 5 },
-                    title: {
-                        display: true,
-                        text: 'Position',
-                        color: textColor,
-                        font: { size: 12, family: 'Inter', weight: '500' }
-                    }
-                }
-            },
-            animation: { duration: 750, easing: 'easeInOutQuart' }
+    // Set pending state
+    oncrawlStatus.className = 'status-indicator pending';
+    oncrawlStatus.innerHTML = '<i class="fas fa-circle"></i><span>Testing...</span>';
+    
+    semrushStatus.className = 'status-indicator pending';
+    semrushStatus.innerHTML = '<i class="fas fa-circle"></i><span>Testing...</span>';
+    
+    // Test OnCrawl (via backend)
+    testBackendConnection().then(connected => {
+        if (connected) {
+            oncrawlStatus.className = 'status-indicator connected';
+            oncrawlStatus.innerHTML = '<i class="fas fa-circle"></i><span>Connected</span>';
+            showToast('OnCrawl connected!', 'success');
+        } else {
+            oncrawlStatus.className = 'status-indicator error';
+            oncrawlStatus.innerHTML = '<i class="fas fa-circle"></i><span>Disconnected</span>';
+            showToast('OnCrawl connection failed', 'error');
         }
     });
+    
+    // SEMRush - not yet integrated
+    setTimeout(() => {
+        semrushStatus.className = 'status-indicator pending';
+        semrushStatus.innerHTML = '<i class="fas fa-circle"></i><span>Coming Soon</span>';
+    }, 1000);
 }
 
 // ========================================
-// Export Functions
+// Export
 // ========================================
 function exportCSV() {
-    const headers = ['URL', 'Priority Score', 'Category', 'Position', 'Change', 'Search Volume', 'Inlinks', 'Tech Issues'];
-    const rows = pagesData.map(p => [
-        p.url, 
-        p.priority_score || p.priority, 
+    const headers = ['URL', 'Score', 'Category', 'Inlinks', 'Depth', 'Tech Issues'];
+    const rows = filteredData.map(p => [
+        p.url,
+        p.priority_score,
         p.bucket === 1 ? 'Critical' : 'Moderate',
-        p.position !== null ? p.position : 'Awaiting SEMRush',
-        p.change !== null ? p.change : 'Awaiting SEMRush',
-        p.volume !== null ? p.volume : 'Awaiting SEMRush',
         p.inlinks,
-        p.techIssues.map(i => techLabels[i] || i).join('; ')
+        p.depth,
+        p.techIssues.map(i => techLabels[i]).join('; ')
     ]);
     
     let csv = headers.join(',') + '\n';
     rows.forEach(row => {
         csv += row.map(cell => `"${cell}"`).join(',') + '\n';
     });
-
+    
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -801,38 +574,13 @@ function exportCSV() {
     a.click();
     URL.revokeObjectURL(url);
     
-    showToast('CSV exported successfully!', 'success');
-}
-
-function exportPDF() {
-    showToast('PDF export requires additional library integration', 'warning');
+    showToast('CSV exported!', 'success');
 }
 
 // ========================================
-// Initialize Application
+// Dark Mode
 // ========================================
-document.addEventListener('DOMContentLoaded', async function() {
-    // Load saved config
-    const savedConfig = localStorage.getItem('apiConfig');
-    if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        if (config.semrushToken) document.getElementById('semrushToken').value = config.semrushToken;
-        if (config.oncrawlToken) document.getElementById('oncrawlToken').value = config.oncrawlToken;
-    }
-    
-    // Show loading states
-    setAllMetricsLoading();
-    showTableLoading();
-    
-    // Try to connect to backend
-    const backendAvailable = await testBackendConnection();
-    
-    if (backendAvailable) {
-        showToast('Backend connected! Loading real data...', 'success');
-        updateStatusDot('oncrawl', 'connected');
-        await loadDashboardData();
-    } else {
-        showToast('Backend not available. Using mock data.', 'warning');
-        generateMockData();
-    }
-});
+function toggleDarkMode() {
+    document.body.classList.toggle('dark');
+    showToast('Theme changed', 'info', 2000);
+}

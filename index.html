@@ -3,333 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Internal Linking Tool</title>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- App Styles -->
+    <title>Internal Linking Tool v2 - SEO Dashboard</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <div id="toastContainer" class="toast-container"></div>
 
-    <!-- Header - Hero Banner - Full Width -->
-    <header class="header">
-        <div class="header-content">
-            <h1><i class="fas fa-link"></i> Internal Linking Tool</h1>
-            <p class="header-subtitle">Strengthen semantic relevance and discoverability of underperforming pages across squareup.com</p>
-        </div>
-        <div class="header-actions">
-            <span>Dark Mode</span>
-            <div class="dark-toggle" onclick="toggleDarkMode()"></div>
-        </div>
-    </header>
-
-    <div class="container">
-        <!-- API Config Panel -->
-        <div class="panel collapsed" id="apiPanel">
-            <div class="panel-header" onclick="togglePanel('apiPanel')">
-                <h3><i class="fas fa-cog"></i> API Configuration</h3>
-                <i class="fas fa-chevron-down chevron"></i>
+    <!-- Page Details Modal -->
+    <div id="pageModal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-container" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">Page Details</h2>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <div class="panel-content">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>SEMRush API Token</label>
-                        <div class="input-with-status">
-                            <input type="password" id="semrushToken" placeholder="Enter SEMRush API token">
-                            <span class="status-dot" id="semrushStatus" title="Not connected"></span>
-                        </div>
+            <div class="modal-body">
+                <div class="modal-url" id="modalUrl">/page/url</div>
+                <div class="modal-metrics">
+                    <div class="metric-box">
+                        <span class="metric-label">Position</span>
+                        <span class="metric-value" id="modalPosition">--</span>
                     </div>
-                    <div class="form-group" style="flex: 0;">
-                        <label>&nbsp;</label>
-                        <button class="btn btn-secondary" onclick="testSemrushAPI()">
-                            <i class="fas fa-plug"></i> Test
-                        </button>
+                    <div class="metric-box">
+                        <span class="metric-label">Inlinks</span>
+                        <span class="metric-value" id="modalInlinks">--</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Depth</span>
+                        <span class="metric-value" id="modalDepth">--</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Score</span>
+                        <span class="metric-value" id="modalScore">--</span>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>OnCrawl API Token</label>
-                        <div class="input-with-status">
-                            <input type="password" id="oncrawlToken" placeholder="Enter OnCrawl API token">
-                            <span class="status-dot" id="oncrawlStatus" title="Not connected"></span>
-                        </div>
+                <div class="modal-grid">
+                    <div class="modal-section">
+                        <h4><i class="fas fa-clipboard-check"></i> Technical Gaps</h4>
+                        <ul id="modalTechChecklist" class="tech-checklist-list"></ul>
                     </div>
-                    <div class="form-group" style="flex: 0;">
-                        <label>&nbsp;</label>
-                        <button class="btn btn-secondary" onclick="testOncrawlAPI()">
-                            <i class="fas fa-plug"></i> Test
-                        </button>
-                    </div>
-                </div>
-                <div class="api-buttons">
-                    <button class="btn btn-success" onclick="saveConfiguration()">
-                        <i class="fas fa-save"></i> Save Configuration
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Settings Panel -->
-        <div class="panel collapsed" id="settingsPanel">
-            <div class="panel-header" onclick="togglePanel('settingsPanel')">
-                <h3><i class="fas fa-sliders-h"></i> Threshold Settings</h3>
-                <i class="fas fa-chevron-down chevron"></i>
-            </div>
-            <div class="panel-content">
-                <div class="form-row">
-                    <div class="form-group">
-                        <div class="slider-group">
-                            <div class="slider-header">
-                                <span class="slider-label">Ranking Drop Threshold (positions)</span>
-                                <span class="slider-value" id="rankDropValue">5</span>
-                            </div>
-                            <input type="range" min="1" max="20" value="5" id="rankDropSlider" oninput="updateSlider('rankDrop')">
-                        </div>
-                        <div class="slider-group">
-                            <div class="slider-header">
-                                <span class="slider-label">Minimum Inlinks Required</span>
-                                <span class="slider-value" id="minInlinksValue">3</span>
-                            </div>
-                            <input type="range" min="1" max="20" value="3" id="minInlinksSlider" oninput="updateSlider('minInlinks')">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="slider-group">
-                            <div class="slider-header">
-                                <span class="slider-label">Search Volume Threshold</span>
-                                <span class="slider-value" id="searchVolValue">500</span>
-                            </div>
-                            <input type="range" min="100" max="5000" step="100" value="500" id="searchVolSlider" oninput="updateSlider('searchVol')">
-                        </div>
-                        <div class="slider-group">
-                            <div class="slider-header">
-                                <span class="slider-label">Priority Score Cutoff</span>
-                                <span class="slider-value" id="priorityCutoffValue">50</span>
-                            </div>
-                            <input type="range" min="10" max="100" value="50" id="priorityCutoffSlider" oninput="updateSlider('priorityCutoff')">
+                    <div class="modal-section">
+                        <h4><i class="fas fa-link"></i> Interlink Recommendations</h4>
+                        <div class="modal-recommendations" id="modalRecommendations">
+                            <table class="recommendations-table">
+                                <thead>
+                                    <tr>
+                                        <th>Source Page</th>
+                                        <th>Relevance</th>
+                                        <th>Anchor Text</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalRecommendationsBody"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-                <div class="api-buttons">
-                    <button class="btn btn-success" onclick="applySettings()">
-                        <i class="fas fa-check"></i> Apply Settings
-                    </button>
-                </div>
             </div>
         </div>
+    </div>
 
-        <!-- Metrics Cards - Overview Row -->
-        <div class="metrics-grid">
-            <div class="metric-card gray">
-                <div class="metric-label">Total Pages</div>
-                <div class="metric-value" id="totalPages"><span class="spinner"></span></div>
+    <!-- App Layout -->
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-link"></i>
+                    <span>LinkFlow</span>
+                </div>
             </div>
-            <div class="metric-card red">
-                <div class="metric-label">Critical</div>
-                <div class="metric-value" id="poorPerformers"><span class="spinner"></span></div>
-            </div>
-            <div class="metric-card yellow">
-                <div class="metric-label">Moderate</div>
-                <div class="metric-value" id="wellPerformers"><span class="spinner"></span></div>
-            </div>
-        </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="dashboard">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="priority-queue">
+                    <i class="fas fa-list-ol"></i>
+                    <span>All Pages</span>
+                </a>
 
-        <!-- Technical Gaps - At a Glance -->
-        <div class="metrics-grid metrics-grid-4">
-            <div class="metric-card-small purple">
-                <div class="metric-icon"><i class="fas fa-link"></i></div>
-                <div class="metric-info">
-                    <div class="metric-value-small" id="lowInlinksCount"><span class="spinner-small"></span></div>
-                    <div class="metric-label-small">Low Inlinks (1-3)</div>
+                <a href="#" class="nav-item" data-tab="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-stats">
+                <div class="stats-heading">Quick Stats</div>
+                <div class="stat-item">
+                    <span class="stat-value" id="sidebarTotal">--</span>
+                    <span class="stat-label">Total Pages</span>
+                </div>
+                <div class="stat-item critical">
+                    <span class="stat-value" id="sidebarCritical">--</span>
+                    <span class="stat-label">Critical</span>
+                </div>
+                <div class="stat-item moderate">
+                    <span class="stat-value" id="sidebarModerate">--</span>
+                    <span class="stat-label">Moderate</span>
                 </div>
             </div>
-            <div class="metric-card-small orange">
-                <div class="metric-icon"><i class="fas fa-unlink"></i></div>
-                <div class="metric-info">
-                    <div class="metric-value-small" id="orphanedCount"><span class="spinner-small"></span></div>
-                    <div class="metric-label-small">Orphaned (0)</div>
-                </div>
+            
+            <div class="sidebar-footer">
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </button>
             </div>
-            <div class="metric-card-small blue">
-                <div class="metric-icon"><i class="fas fa-layer-group"></i></div>
-                <div class="metric-info">
-                    <div class="metric-value-small" id="deepPagesCount"><span class="spinner-small"></span></div>
-                    <div class="metric-label-small">Deep Pages (≥4)</div>
-                </div>
-            </div>
-            <div class="metric-card-small pink">
-                <div class="metric-icon"><i class="fas fa-sitemap"></i></div>
-                <div class="metric-info">
-                    <div class="metric-value-small" id="notInSitemapCount"><span class="spinner-small"></span></div>
-                    <div class="metric-label-small">Not in Sitemap</div>
-                </div>
-            </div>
-        </div>
+        </aside>
 
-        <!-- Table Header -->
-        <h2 class="table-title">Page Path Breakdown</h2>
-
-        <!-- Table Controls -->
-        <div class="table-controls">
-            <div class="search-filter">
-                <div class="filter-wrapper search-wrapper">
-                    <i class="fas fa-search filter-icon"></i>
-                    <input type="text" class="filter-input" placeholder="Search URLs..." id="searchInput" oninput="filterTable()">
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="globalSearch" placeholder="Search pages..." oninput="handleSearch()">
                 </div>
-                <div class="filter-group">
-                    <div class="filter-wrapper">
-                        <i class="fas fa-globe filter-icon"></i>
-                        <select class="filter-select" id="marketFilter" onchange="filterTable()">
-                            <option value="global">Global</option>
+                <div class="top-bar-actions">
+                    <div class="filter-dropdown">
+                        <select id="marketFilter" onchange="applyFilters()">
+                            <option value="global">All Markets</option>
                             <option value="us">US</option>
                             <option value="au">AU</option>
                             <option value="gb">GB</option>
                             <option value="ca">CA</option>
-                            <option value="ie">IE</option>
-                            <option value="es">ES</option>
-                            <option value="jp">JP</option>
-                            <option value="fr">FR</option>
                         </select>
-                        <i class="fas fa-chevron-down filter-chevron"></i>
                     </div>
-                    <div class="filter-wrapper">
-                        <i class="fas fa-chart-line filter-icon"></i>
-                        <select class="filter-select" id="bucketFilter" onchange="filterTable()">
-                            <option value="all">All Categories</option>
-                            <option value="critical">Critical</option>
-                            <option value="moderate">Moderate</option>
-                        </select>
-                        <i class="fas fa-chevron-down filter-chevron"></i>
-                    </div>
-                    <div class="filter-wrapper">
-                        <i class="fas fa-exclamation-triangle filter-icon"></i>
-                        <select class="filter-select" id="techIssueFilter" onchange="filterTable()">
-                            <option value="all">All Tech Issues</option>
+                    <div class="filter-dropdown">
+                        <select id="techIssueFilter" onchange="applyFilters()">
+                            <option value="all">All Issues</option>
                             <option value="low_inlinks">Low Inlinks</option>
                             <option value="orphaned">Orphaned</option>
                             <option value="deep_page">Deep Pages</option>
                             <option value="not_in_sitemap">Not in Sitemap</option>
                         </select>
-                        <i class="fas fa-chevron-down filter-chevron"></i>
                     </div>
-                </div>
-            </div>
-            <div class="export-btns">
-                <button class="export-btn" onclick="exportCSV()">
-                    <i class="fas fa-file-csv"></i> Export CSV
-                </button>
-                <button class="export-btn" onclick="exportPDF()">
-                    <i class="fas fa-file-pdf"></i> Export PDF
-                </button>
-            </div>
-        </div>
-
-        <!-- Priority Queue Table -->
-        <div class="table-container">
-            <div class="table-scroll">
-                <table id="priorityTable">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('url')">URL <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('priority')">Score <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('bucket')">Category <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('position')">Position <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('change')">Change <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('volume')">Search Vol <i class="fas fa-sort"></i></th>
-                            <th onclick="sortTable('inlinks')">Inlinks <i class="fas fa-sort"></i></th>
-                            <th>Tech Issues</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody"></tbody>
-                </table>
-            </div>
-            <!-- Pagination -->
-            <div class="pagination" id="pagination">
-                <div class="pagination-info">
-                    <span id="paginationInfo">Showing 1-100 of 0 results</span>
-                </div>
-                <div class="pagination-controls">
-                    <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <div class="pagination-pages" id="paginationPages"></div>
-                    <button class="pagination-btn" id="nextPage" onclick="changePage(1)">
-                        Next <i class="fas fa-chevron-right"></i>
+                    <button class="btn-export" onclick="exportCSV()">
+                        <i class="fas fa-download"></i>
+                        Export
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
+            </header>
 
-    <!-- Page Detail Modal -->
-    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-        <div class="modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h2 id="modalTitle">Page Details</h2>
-                <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-section">
-                    <div class="chart-header">
-                        <h3><i class="fas fa-chart-line"></i> Ranking History</h3>
-                        <select id="yearSelector" class="year-selector" onchange="updateChartYear()">
-                            <option value="2024">2024</option>
-                            <option value="2023">2023</option>
-                            <option value="2022">2022</option>
-                        </select>
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content active">
+                <section class="gaps-section dashboard-gaps">
+                    <div class="section-header">
+                        <h2><i class="fas fa-exclamation-triangle"></i> Technical Gaps Overview</h2>
                     </div>
-                    <div class="chart-wrapper">
-                        <div class="chart-container">
-                            <canvas id="rankingChart" class="chart-canvas"></canvas>
-                            <div id="chartTooltip" class="chart-tooltip">
-                                <span class="tooltip-label">Position</span>
-                                <span class="tooltip-position"></span>
-                                <span class="tooltip-month"></span>
+                    <div class="gaps-cards">
+                        <div class="gap-card purple">
+                            <div class="gap-icon"><i class="fas fa-link"></i></div>
+                            <div class="gap-info">
+                                <span class="gap-value" id="gapLowInlinks">--</span>
+                                <span class="gap-label">Low Inlinks</span>
                             </div>
                         </div>
-                        <div class="chart-legend">
-                            <div class="chart-legend-item">
-                                <span class="chart-legend-dot current"></span>
-                                <span>Monthly Position</span>
+                        <div class="gap-card orange">
+                            <div class="gap-icon"><i class="fas fa-unlink"></i></div>
+                            <div class="gap-info">
+                                <span class="gap-value" id="gapOrphaned">--</span>
+                                <span class="gap-label">Orphaned</span>
+                            </div>
+                        </div>
+                        <div class="gap-card blue">
+                            <div class="gap-icon"><i class="fas fa-layer-group"></i></div>
+                            <div class="gap-info">
+                                <span class="gap-value" id="gapDeepPages">--</span>
+                                <span class="gap-label">Deep Pages</span>
+                            </div>
+                        </div>
+                        <div class="gap-card pink">
+                            <div class="gap-icon"><i class="fas fa-sitemap"></i></div>
+                            <div class="gap-info">
+                                <span class="gap-value" id="gapNotInSitemap">--</span>
+                                <span class="gap-label">Not in Sitemap</span>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-section">
-                    <h3><i class="fas fa-exclamation-triangle"></i> Technical Gaps</h3>
-                    <ul class="checklist" id="techChecklist"></ul>
-                </div>
+                </section>
 
-                <div class="modal-section">
-                    <h3><i class="fas fa-link"></i> Interlink Recommendations</h3>
+                <section class="cards-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-fire"></i> Pages Needing Attention</h2>
+                    </div>
+                    <div class="page-cards-container" id="pageCardsContainer">
+                        <div class="loading-cards">
+                            <span class="spinner"></span>
+                            <span>Loading priority pages...</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="details-section" id="detailsSection">
+                    <div class="details-placeholder" id="detailsPlaceholder">
+                        <i class="fas fa-hand-pointer"></i>
+                        <h3>Select a page above</h3>
+                        <p>Click on any page card to view details and recommendations</p>
+                    </div>
+                    <div class="details-content" id="detailsContent" style="display: none;">
+                        <div class="details-grid">
+                            <div class="details-info">
+                                <div class="details-header">
+                                    <h3 id="detailsTitle">Page Title</h3>
+                                    <span class="details-url" id="detailsUrl">/page/url</span>
+                                </div>
+                                <div class="metrics-row">
+                                    <div class="metric-box">
+                                        <span class="metric-label">Position</span>
+                                        <span class="metric-value" id="detailsPosition">--</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="metric-label">Inlinks</span>
+                                        <span class="metric-value" id="detailsInlinks">--</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="metric-label">Depth</span>
+                                        <span class="metric-value" id="detailsDepth">--</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="metric-label">Score</span>
+                                        <span class="metric-value" id="detailsScore">--</span>
+                                    </div>
+                                </div>
+                                <div class="tech-checklist">
+                                    <h4><i class="fas fa-clipboard-check"></i> Technical Gaps</h4>
+                                    <ul id="techChecklist"></ul>
+                                </div>
+                            </div>
+                            <div class="details-recommendations">
+                                <h4><i class="fas fa-link"></i> Interlink Recommendations</h4>
+                                <div class="recommendations-table-container" id="recommendationsContainer">
+                                    <table class="recommendations-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Source Page</th>
+                                                <th>Relevance</th>
+                                                <th>Anchor Text</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recommendationsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Page Path Breakdown Tab -->
+            <div id="priority-queue-tab" class="tab-content">
+                <section class="table-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-list-ol"></i> Page Path Breakdown</h2>
+                        <span class="results-count" id="resultsCount">-- results</span>
+                    </div>
                     <div class="table-container">
-                        <table class="rec-table">
+                        <table class="data-table" id="priorityTable">
                             <thead>
                                 <tr>
-                                    <th>Source Page</th>
-                                    <th>Relevance</th>
-                                    <th>Suggested Anchor</th>
-                                    <th>Action</th>
+                                    <th onclick="sortTable('url')">URL <i class="fas fa-sort"></i></th>
+                                    <th onclick="sortTable('priority_score')">Score <i class="fas fa-sort"></i></th>
+                                    <th onclick="sortTable('bucket')">Category <i class="fas fa-sort"></i></th>
+                                    <th onclick="sortTable('position')">Position <i class="fas fa-sort"></i></th>
+                                    <th onclick="sortTable('inlinks')">Inlinks <i class="fas fa-sort"></i></th>
+                                    <th>Tech Issues</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="recTableBody"></tbody>
+                            <tbody id="tableBody"></tbody>
                         </table>
                     </div>
-                </div>
+                    <div class="pagination" id="pagination">
+                        <span id="paginationInfo">Showing 0 results</span>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
+                                <i class="fas fa-chevron-left"></i> Prev
+                            </button>
+                            <div class="pagination-pages" id="paginationPages"></div>
+                            <button class="pagination-btn" id="nextPage" onclick="changePage(1)">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
             </div>
-        </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <section class="settings-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-cog"></i> Settings</h2>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-card">
+                            <h3><i class="fas fa-plug"></i> API Configuration</h3>
+                            <div class="api-status-list">
+                                <div class="api-status-item">
+                                    <div class="api-status-info">
+                                        <span class="api-name">OnCrawl</span>
+                                        <span class="api-description">Technical SEO data</span>
+                                    </div>
+                                    <span class="status-indicator" id="oncrawlStatus">
+                                        <i class="fas fa-circle"></i>
+                                        <span>Not tested</span>
+                                    </span>
+                                </div>
+                                <div class="api-status-item">
+                                    <div class="api-status-info">
+                                        <span class="api-name">SEMRush</span>
+                                        <span class="api-description">Keyword & ranking data</span>
+                                    </div>
+                                    <span class="status-indicator" id="semrushStatus">
+                                        <i class="fas fa-circle"></i>
+                                        <span>Not tested</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <button class="btn-primary" onclick="testConnections()">
+                                <i class="fas fa-plug"></i> Test Connections
+                            </button>
+                        </div>
+
+                    </div>
+                </section>
+            </div>
+        </main>
     </div>
 
-    <!-- App Scripts -->
     <script src="js/app.js"></script>
 </body>
 </html>
