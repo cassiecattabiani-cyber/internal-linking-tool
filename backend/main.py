@@ -357,12 +357,9 @@ async def get_priority_pages(
     
     This combines OnCrawl data with priority scoring.
     """
-    # Get first live crawl if not specified
+    # Use configured active project crawl if not specified
     if not crawl_id:
-        live_crawls = oncrawl_client.get_live_crawls()
-        if not live_crawls:
-            raise HTTPException(status_code=404, detail="No live crawls available")
-        crawl_id = live_crawls[0]['crawl_id']
+        crawl_id = get_active_crawl_id()
     
     # Get pages with technical issues
     orphaned = oncrawl_client.get_orphaned_pages(crawl_id, limit=limit)
@@ -376,7 +373,7 @@ async def get_priority_pages(
     if not orphaned.get('error'):
         for page in orphaned.get('urls', []):
             url = page.get('url')
-            if url and _matches_market(url, market):
+            if url and _matches_market(url, market) and not is_excluded_url(url):
                 all_pages[url] = {
                     **page,
                     'technical_gaps': ['orphaned'],
@@ -387,7 +384,7 @@ async def get_priority_pages(
     if not low_inlinks.get('error'):
         for page in low_inlinks.get('urls', []):
             url = page.get('url')
-            if url and _matches_market(url, market):
+            if url and _matches_market(url, market) and not is_excluded_url(url):
                 if url in all_pages:
                     all_pages[url]['technical_gaps'].append('low_inlinks')
                     all_pages[url]['priority_score'] = _calculate_priority(
@@ -404,7 +401,7 @@ async def get_priority_pages(
     if not deep_pages.get('error'):
         for page in deep_pages.get('urls', []):
             url = page.get('url')
-            if url and _matches_market(url, market):
+            if url and _matches_market(url, market) and not is_excluded_url(url):
                 if url in all_pages:
                     all_pages[url]['technical_gaps'].append('deep_page')
                     all_pages[url]['priority_score'] = _calculate_priority(
@@ -440,12 +437,9 @@ async def get_priority_pages(
 @app.get("/api/dashboard/metrics")
 async def get_dashboard_metrics(crawl_id: Optional[str] = None):
     """Get overview metrics for the dashboard."""
-    # Get first live crawl if not specified
+    # Use configured active project crawl if not specified
     if not crawl_id:
-        live_crawls = oncrawl_client.get_live_crawls()
-        if not live_crawls:
-            raise HTTPException(status_code=404, detail="No live crawls available")
-        crawl_id = live_crawls[0]['crawl_id']
+        crawl_id = get_active_crawl_id()
     
     summary = oncrawl_client.get_technical_summary(crawl_id)
     
