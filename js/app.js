@@ -228,12 +228,14 @@ function applyFilters() {
     });
     
     currentPage = 1;
+    
+    // Re-render the table and cards
+    renderTable();
+    renderPageCards();
 }
 
 function handleSearch() {
     applyFilters();
-    renderPageCards();
-    renderTable();
 }
 
 // ========================================
