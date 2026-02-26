@@ -122,37 +122,6 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Top Bar -->
-            <header class="top-bar">
-                <div class="search-container">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="globalSearch" placeholder="Search pages..." oninput="handleSearch()">
-                </div>
-                <div class="top-bar-actions">
-                    <div class="filter-dropdown">
-                        <select id="marketFilter" onchange="applyFilters()">
-                            <option value="global">All Markets</option>
-                            <option value="us">US</option>
-                            <option value="au">AU</option>
-                            <option value="gb">GB</option>
-                            <option value="ca">CA</option>
-                        </select>
-                    </div>
-                    <div class="filter-dropdown">
-                        <select id="techIssueFilter" onchange="applyFilters()">
-                            <option value="all">All Issues</option>
-                            <option value="low_inlinks">Low Inlinks</option>
-                            <option value="orphaned">Orphaned</option>
-                            <option value="deep_page">Deep Pages</option>
-                            <option value="not_in_sitemap">Not in Sitemap</option>
-                        </select>
-                    </div>
-                    <button class="btn-export" onclick="exportCSV()">
-                        <i class="fas fa-download"></i>
-                        Export
-                    </button>
-                </div>
-            </header>
 
             <!-- Dashboard Tab -->
             <div id="dashboard-tab" class="tab-content active">
@@ -268,6 +237,49 @@
                         <h2><i class="fas fa-list-ol"></i> Page Path Breakdown</h2>
                         <span class="results-count" id="resultsCount">-- results</span>
                     </div>
+                    
+                    <!-- Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="filter-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="globalSearch" placeholder="Search by URL..." oninput="handleSearch()">
+                        </div>
+                        <div class="filter-group">
+                            <div class="filter-item">
+                                <label><i class="fas fa-globe"></i> Market</label>
+                                <select id="marketFilter" onchange="applyFilters()">
+                                    <option value="global">All Markets</option>
+                                    <option value="us">US</option>
+                                    <option value="au">AU</option>
+                                    <option value="gb">GB</option>
+                                    <option value="ca">CA</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label><i class="fas fa-exclamation-circle"></i> Tech Issue</label>
+                                <select id="techIssueFilter" onchange="applyFilters()">
+                                    <option value="all">All Issues</option>
+                                    <option value="low_inlinks">Low Inlinks</option>
+                                    <option value="orphaned">Orphaned</option>
+                                    <option value="deep_page">Deep Pages</option>
+                                    <option value="not_in_sitemap">Not in Sitemap</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label><i class="fas fa-tag"></i> Category</label>
+                                <select id="categoryFilter" onchange="applyFilters()">
+                                    <option value="all">All Categories</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="moderate">Moderate</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn-export" onclick="exportCSV()">
+                            <i class="fas fa-download"></i>
+                            Export CSV
+                        </button>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table" id="priorityTable">
                             <thead>

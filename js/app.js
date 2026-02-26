@@ -201,14 +201,17 @@ function updateGapsCards(metrics) {
 // Filtering
 // ========================================
 function applyFilters() {
-    const search = document.getElementById('globalSearch').value.toLowerCase();
-    const market = document.getElementById('marketFilter').value;
-    const techIssue = document.getElementById('techIssueFilter').value;
+    const search = document.getElementById('globalSearch')?.value.toLowerCase() || '';
+    const market = document.getElementById('marketFilter')?.value || 'global';
+    const techIssue = document.getElementById('techIssueFilter')?.value || 'all';
+    const category = document.getElementById('categoryFilter')?.value || 'all';
     
     filteredData = pagesData.filter(page => {
         if (search && !page.url.toLowerCase().includes(search)) return false;
         if (market !== 'global' && !page.url.includes(`/${market}/`)) return false;
         if (techIssue !== 'all' && !page.techIssues.includes(techIssue)) return false;
+        if (category === 'critical' && page.bucket !== 1) return false;
+        if (category === 'moderate' && page.bucket !== 2) return false;
         return true;
     });
     
