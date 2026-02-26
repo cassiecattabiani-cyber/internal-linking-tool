@@ -37,7 +37,7 @@ oncrawl_client = OnCrawlClient()
 
 PROJECT_CONFIG = {
     # Current active project
-    "active_project": "seller_community",  # Change to "square_global" when ready
+    "active_project": "square_global",  # Switched from seller_community
     
     # Project definitions
     "projects": {
